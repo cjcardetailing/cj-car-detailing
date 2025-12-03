@@ -355,7 +355,7 @@ body {
     height: 100%;
     display: block;
     object-fit: cover;
-    object-position: center 40%;
+    object-position: center bottom;
     transition: transform 0.5s ease;
 }
 
