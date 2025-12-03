@@ -22,7 +22,7 @@
                     <li><a href="#portfolio" class="nav-link">Our Work</a></li>
                     <li><a href="#reviews" class="nav-link">Reviews</a></li>
                     <li><a href="#contact" class="nav-link">Contact</a></li>
-                    <li><a href="booking.html" class="nav-link btn-booking">Book Now</a></li>
+                    <li><a href="book.html" class="nav-link btn-booking">Book Now</a></li>
                 </ul>
                 <button class="mobile-menu-toggle" aria-label="Toggle menu">
                     <span></span>
@@ -41,8 +41,8 @@
                 <h1 class="hero-title">Professional Mobile Car Detailing</h1>
                 <p class="hero-subtitle">Premium mobile automotive detailing services delivered to your location.</p>
                 <div class="hero-buttons">
-                    <a href="booking.html" class="btn btn-primary">Schedule Service</a>
-                    <a href="#portfolio" class="btn btn-secondary">View Portfolio</a>
+                    <a href="book.html" class="btn btn-primary">Book Now</a>
+                    <a href="https://tally.so/r/44abZY" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">Business Enquiries</a>
                 </div>
             </div>
         </div>
@@ -350,25 +350,21 @@
                         </div>
                     </div>
                 </div>
-                <form class="contact-form" id="contactForm">
-                    <div class="form-group">
-                        <label for="contactName">Name *</label>
-                        <input type="text" id="contactName" name="name" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="contactEmail">Email *</label>
-                        <input type="email" id="contactEmail" name="email" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="contactPhone">Phone</label>
-                        <input type="tel" id="contactPhone" name="phone">
-                    </div>
-                    <div class="form-group">
-                        <label for="contactMessage">Message *</label>
-                        <textarea id="contactMessage" name="message" rows="5" required></textarea>
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-block">Send Message</button>
-                </form>
+                <!-- Tally.so Contact Form Embed -->
+                <!-- Replace YOUR_TALLY_FORM_ID with your actual Tally contact form ID -->
+                <div class="contact-form">
+                    <iframe 
+                        data-tally-src="https://tally.so/embed/VLpeJE?alignLeft=1&hideTitle=1&transparentBackground=1&dynamicHeight=1"
+                        loading="lazy" 
+                        width="100%" 
+                        height="400" 
+                        frameborder="0" 
+                        marginheight="0" 
+                        marginwidth="0" 
+                        title="Contact Form">
+                    </iframe>
+                    <script>var d=document,w="https://tally.so/widgets/embed.js",v=function(){"undefined"!=typeof Tally?Tally.loadEmbeds():d.querySelectorAll("iframe[data-tally-src]:not([src])").forEach((function(e){e.src=e.dataset.tallySrc}))};if("undefined"!=typeof Tally)v();else if(d.querySelector('script[src="'+w+'"]')==null){var s=d.createElement("script");s.src=w,s.onload=v,s.onerror=v,d.body.appendChild(s)}</script>
+                </div>
             </div>
         </div>
     </section>
@@ -390,7 +386,7 @@
                         <li><a href="#portfolio">Our Work</a></li>
                         <li><a href="#reviews">Reviews</a></li>
                         <li><a href="#contact">Contact</a></li>
-                        <li><a href="booking.html">Book Now</a></li>
+                        <li><a href="book.html">Book Now</a></li>
                     </ul>
                 </div>
                 <div class="footer-section">
