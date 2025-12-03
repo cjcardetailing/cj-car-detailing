@@ -343,10 +343,13 @@ body {
 
 .portfolio-image {
     width: 100%;
-    aspect-ratio: 3 / 4;
+    aspect-ratio: 16 / 9;
     overflow: hidden;
     position: relative;
     background: var(--dark);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .portfolio-image img {
