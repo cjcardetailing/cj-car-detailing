@@ -322,8 +322,10 @@ body {
 
 .portfolio-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
 }
 
 .portfolio-item {
@@ -341,31 +343,22 @@ body {
 
 .portfolio-image {
     width: 100%;
-    aspect-ratio: 4 / 3;
+    aspect-ratio: 3 / 4;
     overflow: hidden;
     position: relative;
+    background: var(--dark);
 }
 
 .portfolio-image img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     object-position: center center;
     transition: transform 0.5s ease;
 }
 
-/* Car exterior shots - focus on bottom where the car is */
-.portfolio-image img.img-car-bottom {
-    object-position: center 75%;
-}
-
-/* Interior shots - center focus */
-.portfolio-image img.img-interior {
-    object-position: center 60%;
-}
-
 .portfolio-item:hover .portfolio-image img {
-    transform: scale(1.05);
+    transform: scale(1.02);
 }
 
 .image-placeholder {
