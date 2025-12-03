@@ -1,33 +1,31 @@
 # Dependencies
 node_modules/
+package-lock.json
 
 # Environment variables
 .env
 .env.local
-.env.production
 
-# Database (not needed for static deployment)
+# Database
 *.db
 *.sqlite
 *.sqlite3
 
-# Server files (not needed for Cloudflare Pages)
-# These are kept for local development but not deployed
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-Thumbs.db
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-
 # Logs
 *.log
 npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build outputs (if any)
+dist/
+build/
+.output/

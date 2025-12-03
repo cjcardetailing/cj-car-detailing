@@ -341,8 +341,21 @@ body {
 
 .portfolio-image {
     width: 100%;
-    height: 250px;
+    height: 300px;
     overflow: hidden;
+    position: relative;
+}
+
+.portfolio-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    transition: transform 0.5s ease;
+}
+
+.portfolio-item:hover .portfolio-image img {
+    transform: scale(1.05);
 }
 
 .image-placeholder {

@@ -1,0 +1,12 @@
+# Cloudflare Pages redirects file
+# This ensures proper routing for your static site
+
+# Serve index.html for root path
+/ /index.html 200
+
+# Serve book.html
+/book.html /book.html 200
+
+# Fallback to index.html for all other routes (SPA-like behavior)
+/* /index.html 200
+
