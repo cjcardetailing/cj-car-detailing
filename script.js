@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (mobileMenuToggle) {
         mobileMenuToggle.addEventListener('click', function() {
             navMenu.classList.toggle('active');
+            mobileMenuToggle.classList.toggle('active');
         });
 
         // Close menu when clicking on a link
@@ -45,9 +46,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const currentScroll = window.pageYOffset;
 
         if (currentScroll > 100) {
-            navbar.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.2)';
+            navbar.style.borderBottomColor = 'rgba(255, 255, 255, 0.1)';
         } else {
-            navbar.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+            navbar.style.borderBottomColor = 'rgba(255, 255, 255, 0.06)';
         }
 
         lastScroll = currentScroll;
