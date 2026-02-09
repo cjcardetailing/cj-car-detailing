@@ -7,6 +7,13 @@
 # Serve book.html
 /book.html /book.html 200
 
+# Hidden regulars pay page (exact link only — not linked from site)
+# All paths serve the same page so you can share any of these links
+/regulars /regulars.html 200
+/interior-detail-60-pay-now-regulars /regulars.html 200
+/exterior-detail-30-pay-now-regulars /regulars.html 200
+/interior-exterior-detail-85-pay-now-regulars /regulars.html 200
+
 # Fallback to index.html for all other routes (SPA-like behavior)
 /* /index.html 200
 
