@@ -804,11 +804,16 @@ h1, h2, h3, h4 {
 }
 
 .payment-buttons-full {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
 }
 
-.payment-buttons-full .btn-payment {
+.payment-buttons-full > .btn-payment {
     width: 100%;
+    min-width: 0;
+    flex: 1 1 auto;
+    box-sizing: border-box;
 }
 
 .btn-payment {
