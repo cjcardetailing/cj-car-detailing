@@ -803,6 +803,14 @@ h1, h2, h3, h4 {
     gap: 1rem;
 }
 
+.payment-buttons-full {
+    grid-template-columns: 1fr;
+}
+
+.payment-buttons-full .btn-payment {
+    width: 100%;
+}
+
 .btn-payment {
     display: flex;
     flex-direction: column;
