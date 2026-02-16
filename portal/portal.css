@@ -1,159 +1,339 @@
-:root{
-    --bg1: #0b0c0f;
-    --bg2: #15161b;
-    --panel: rgba(255,255,255,.08);
-    --panel2: rgba(255,255,255,.06);
-    --border: rgba(255,255,255,.14);
-    --border2: rgba(255,255,255,.18);
-    --text: rgba(255,255,255,.92);
-    --muted: rgba(255,255,255,.68);
-    --muted2: rgba(255,255,255,.54);
-    --gold: #d4af37;
-    --gold2: #c89d1d;
+/* Portal - matches main site theme (DM Sans, Syne, gold accent) - lighter and cleaner */
+
+body.portal-page {
+  background: #f8f6f2 !important;
+}
+
+:root {
+  --portal-bg: #f8f6f2;
+  --portal-bg-card: #ffffff;
+  --portal-bg-elevated: #f0ede8;
+  --portal-border: rgba(0, 0, 0, 0.08);
+  --portal-border-hover: rgba(0, 0, 0, 0.14);
+  --portal-text: #1a1814;
+  --portal-muted: #5c564d;
+  --portal-muted2: #8a8580;
+  --portal-accent: #c9a227;
+  --portal-accent-hover: #b8921f;
+  --portal-accent-muted: rgba(201, 162, 39, 0.15);
+  --portal-sidebar-bg: linear-gradient(180deg, #ffffff 0%, #f5f2ed 100%);
+  --portal-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  --portal-shadow-hover: 0 4px 20px rgba(0, 0, 0, 0.1);
+  --portal-transition: all 0.2s ease;
+}
+
+body {
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.portal-bg {
+  min-height: 100vh;
+  padding: 20px;
+  background: var(--portal-bg);
+  background-image: 
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(201, 162, 39, 0.08), transparent 50%),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(201, 162, 39, 0.05), transparent 40%);
+}
+
+.portal-layout {
+  min-height: calc(100vh - 40px);
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Sidebar - clean, minimal */
+.portal-side {
+  border-radius: 12px;
+  background: var(--portal-sidebar-bg);
+  border: 1px solid var(--portal-border);
+  box-shadow: var(--portal-shadow);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.portal-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--portal-border);
+}
+
+.portal-brand img {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+
+.portal-brand b {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--portal-text);
+  font-family: 'Syne', sans-serif;
+}
+
+.portal-brand .sub {
+  font-size: 12px;
+  color: var(--portal-muted);
+  margin-top: 2px;
+  font-weight: 400;
+}
+
+.portal-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.portal-nav button {
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--portal-muted);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--portal-transition);
+}
+
+.portal-nav button:hover {
+  background: var(--portal-accent-muted);
+  color: var(--portal-text);
+}
+
+.portal-nav button.active {
+  background: var(--portal-accent);
+  color: #1a1814;
+  font-weight: 600;
+}
+
+.portal-nav button.active:hover {
+  background: var(--portal-accent-hover);
+  color: #1a1814;
+}
+
+#logoutBtn {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--portal-border);
+}
+
+#logoutBtn.secondary {
+  background: transparent !important;
+  color: var(--portal-muted) !important;
+  border: 1px solid var(--portal-border) !important;
+}
+
+#logoutBtn.secondary:hover {
+  background: rgba(0, 0, 0, 0.04) !important;
+  color: var(--portal-text) !important;
+  border-color: var(--portal-border-hover) !important;
+}
+
+/* Main content */
+.portal-main {
+  border-radius: 12px;
+  background: var(--portal-bg-card);
+  border: 1px solid var(--portal-border);
+  box-shadow: var(--portal-shadow);
+  padding: 24px;
+}
+
+.portal-top h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--portal-text);
+  font-family: 'Syne', sans-serif;
+}
+
+.muted {
+  color: var(--portal-muted);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.portal-card {
+  background: var(--portal-bg-elevated);
+  border: 1px solid var(--portal-border);
+  border-radius: 10px;
+  padding: 18px;
+  margin-bottom: 16px;
+}
+
+.portal-card .portal-card {
+  background: var(--portal-bg-card);
+}
+
+.portal-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.k {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--portal-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.v {
+  font-size: 26px;
+  font-weight: 800;
+  margin-top: 6px;
+  color: var(--portal-accent);
+  font-family: 'Syne', sans-serif;
+}
+
+.small {
+  font-size: 12px;
+  color: var(--portal-muted2);
+  margin-top: 6px;
+}
+
+.portal-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+input,
+select,
+textarea {
+  border-radius: 8px;
+  border: 1px solid var(--portal-border);
+  background: var(--portal-bg-card);
+  color: var(--portal-text);
+  padding: 10px 14px;
+  outline: none;
+  font-family: inherit;
+  font-size: 14px;
+  transition: var(--portal-transition);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--portal-accent);
+  box-shadow: 0 0 0 3px var(--portal-accent-muted);
+}
+
+button {
+  border-radius: 8px;
+  border: none;
+  background: var(--portal-accent);
+  color: #1a1814;
+  padding: 10px 16px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: var(--portal-transition);
+}
+
+button:hover {
+  background: var(--portal-accent-hover);
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--portal-muted);
+  border: 1px solid var(--portal-border);
+}
+
+button.secondary:hover {
+  background: var(--portal-accent-muted);
+  border-color: var(--portal-accent);
+  color: var(--portal-text);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--portal-border);
+  font-size: 13px;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  color: var(--portal-muted);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+tbody tr:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.hidden {
+  display: none;
+}
+
+/* Chart container */
+.chart-container {
+  position: relative;
+  width: 100%;
+  height: 260px;
+  margin-top: 16px;
+  padding: 0 10px 30px 50px;
+}
+
+.chart-container canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  cursor: crosshair;
+}
+
+.chart-tooltip {
+  position: absolute;
+  background: var(--portal-text);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  pointer-events: none;
+  z-index: 100;
+  box-shadow: var(--portal-shadow-hover);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.chart-tooltip.visible {
+  opacity: 1;
+}
+
+.chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--portal-muted2);
+  font-size: 14px;
+}
+
+@media (max-width: 900px) {
+  .portal-layout {
+    grid-template-columns: 1fr;
   }
-  
-  body{
-    margin:0;
-    color: var(--text);
-    background: radial-gradient(1200px 700px at 20% 10%, rgba(212,175,55,.14), transparent 55%),
-                radial-gradient(1000px 600px at 90% 20%, rgba(255,255,255,.06), transparent 55%),
-                linear-gradient(180deg, var(--bg1), var(--bg2));
-  }
-  
-  .portal-bg{
-    min-height:100vh;
-    padding: 18px;
-  }
-  
-  .portal-layout{
-    min-height: calc(100vh - 36px);
-    display:grid;
-    grid-template-columns: 280px 1fr;
-    gap: 14px;
-  }
-  
-  .portal-side,
-  .portal-main{
-    border-radius: 18px;
-    border: 1px solid var(--border);
-    background: rgba(0,0,0,.35);
-    backdrop-filter: blur(10px);
-  }
-  
-  .portal-side{
-    padding: 14px;
-  }
-  
-  .portal-brand{
-    display:flex;
-    align-items:center;
-    gap:12px;
-    padding: 12px;
-    border-radius: 16px;
-    background: var(--panel2);
-    border: 1px solid var(--border);
-    margin-bottom: 12px;
-  }
-  
-  .portal-brand img{
-    width: 34px;
-    height: 34px;
-    border-radius: 10px;
-  }
-  
-  .portal-brand b{ font-size: 14px; letter-spacing: .2px; }
-  .portal-brand .sub{ font-size: 12px; color: var(--muted); margin-top: 2px; }
-  
-  .portal-nav button{
-    width:100%;
-    text-align:left;
-    margin: 8px 0;
-    padding: 12px 12px;
-    border-radius: 16px;
-    border: 1px solid var(--border);
-    background: rgba(255,255,255,.05);
-    color: var(--text);
-    cursor:pointer;
-  }
-  
-  .portal-nav button.active{
-    border-color: rgba(212,175,55,.45);
-    background: rgba(212,175,55,.10);
-  }
-  
-  .portal-main{
-    padding: 14px;
-  }
-  
-  .portal-top{
-    display:flex;
-    align-items:flex-start;
-    justify-content:space-between;
-    gap:12px;
-    margin-bottom: 12px;
-  }
-  
-  .portal-top h2{ margin:0; font-size: 18px; }
-  .muted{ color: var(--muted); font-size: 12px; margin-top: 4px; }
-  
-  .portal-card{
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 14px;
-    margin-bottom: 12px;
-  }
-  
-  .portal-grid{
-    display:grid;
-    grid-template-columns: repeat(3, minmax(0,1fr));
-    gap: 12px;
-  }
-  
-  .k{ font-size: 12px; color: var(--muted); }
-  .v{ font-size: 24px; font-weight: 800; margin-top: 6px; letter-spacing: .2px; }
-  .small{ font-size: 12px; color: var(--muted2); margin-top: 8px; }
-  
-  .portal-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-  
-  input, select, textarea{
-    border-radius: 14px;
-    border: 1px solid var(--border);
-    background: rgba(0,0,0,.30);
-    color: var(--text);
-    padding: 10px 12px;
-    outline: none;
-  }
-  
-  button{
-    border-radius: 14px;
-    border: 1px solid rgba(212,175,55,.45);
-    background: rgba(212,175,55,.14);
-    color: var(--text);
-    padding: 10px 12px;
-    cursor:pointer;
-  }
-  button:hover{ background: rgba(212,175,55,.20); }
-  
-  button.secondary{
-    border-color: var(--border2);
-    background: rgba(255,255,255,.06);
-  }
-  button.secondary:hover{ background: rgba(255,255,255,.09); }
-  
-  table{ width:100%; border-collapse:collapse; }
-  th,td{
-    padding: 10px;
-    border-bottom: 1px solid rgba(255,255,255,.10);
-    font-size: 13px;
-    text-align:left;
-    vertical-align:top;
-  }
-  th{ color: var(--muted); font-weight: 600; font-size: 12px; }
-  
-  .hidden{ display:none; }
-  
-  @media (max-width: 900px){
-    .portal-layout{ grid-template-columns: 1fr; }
-  }
-  
+}
