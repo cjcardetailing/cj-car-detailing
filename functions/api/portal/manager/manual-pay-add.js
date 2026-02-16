@@ -1,6 +1,6 @@
 import { requireRole } from "../../../_lib/requireAuth.js";
 import { formatAUD } from "../../../_lib/money.js";
-import { isManualPayTableMissingError } from "../../../_lib/manualPay.js";
+import { ensureManualPayTable } from "../../../_lib/manualPay.js";
 
 function parseAmountToCents(value) {
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -74,22 +74,12 @@ export async function onRequestPost(context) {
     });
   }
 
-  let insert;
-  try {
-    insert = await env.DB.prepare(
-      `INSERT INTO manual_pay_entries
-        (employee_user_id, created_by_user_id, job_time, cars_count, job_type, pay_cents)
-       VALUES (?, ?, ?, ?, ?, ?)`
-    ).bind(employeeUserId, auth.user.id, jobTime, carsCount, jobType, payCents).run();
-  } catch (err) {
-    if (!isManualPayTableMissingError(err)) throw err;
-    return new Response(JSON.stringify({
-      error: "Manual pay is not available yet. Please run the latest database migration and try again.",
-    }), {
-      status: 503,
-      headers: { "content-type": "application/json" },
-    });
-  }
+  await ensureManualPayTable(env);
+  const insert = await env.DB.prepare(
+    `INSERT INTO manual_pay_entries
+      (employee_user_id, created_by_user_id, job_time, cars_count, job_type, pay_cents)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).bind(employeeUserId, auth.user.id, jobTime, carsCount, jobType, payCents).run();
 
   return new Response(JSON.stringify({
     ok: true,

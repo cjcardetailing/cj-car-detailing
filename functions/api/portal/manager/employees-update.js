@@ -1,6 +1,21 @@
 import { requireRole } from "../../../_lib/requireAuth.js";
 import { encryptString } from "../../../_lib/crypto.js";
 
+function calcAgeFromDob(dobISO) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dobISO || ""))) return null;
+  const dob = new Date(`${dobISO}T00:00:00Z`);
+  if (Number.isNaN(dob.getTime())) return null;
+  const now = new Date();
+  let years = now.getUTCFullYear() - dob.getUTCFullYear();
+  let months = now.getUTCMonth() - dob.getUTCMonth();
+  if (now.getUTCDate() < dob.getUTCDate()) months -= 1;
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+  return { years: Math.max(0, years), months: Math.max(0, months) };
+}
+
 export async function onRequestPost(context){
   const { env, request } = context;
   const auth = await requireRole(env, request, "MANAGER");
@@ -29,13 +44,29 @@ export async function onRequestPost(context){
 
   // update profile fields
   if (fullName || dob) {
+    if (dob && !/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+      return new Response(JSON.stringify({ error:"DOB must be YYYY-MM-DD" }), { status:400, headers:{ "content-type":"application/json" }});
+    }
+    const age = dob ? calcAgeFromDob(dob) : null;
+    if (dob && !age) {
+      return new Response(JSON.stringify({ error:"Invalid DOB" }), { status:400, headers:{ "content-type":"application/json" }});
+    }
+
     await env.DB.prepare(
       `UPDATE employee_profiles
        SET full_name = COALESCE(?, full_name),
            dob = COALESCE(?, dob),
+           age_years = COALESCE(?, age_years),
+           age_months = COALESCE(?, age_months),
            updated_at = datetime('now')
        WHERE user_id = ?`
-    ).bind(fullName || null, dob || null, employeeId).run();
+    ).bind(
+      fullName || null,
+      dob || null,
+      age ? age.years : null,
+      age ? age.months : null,
+      employeeId
+    ).run();
   }
 
   // bank update always allowed for managers
