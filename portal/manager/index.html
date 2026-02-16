@@ -6,113 +6,119 @@
   <title>CJ Portal – Manager</title>
   <link rel="icon" href="/favicon.png"/>
   <link rel="stylesheet" href="/styles.css"/>
-  <style>
-    body{margin:0}
-    .layout{min-height:100vh;display:grid;grid-template-columns:260px 1fr}
-    .side{background:rgba(0,0,0,.65);border-right:1px solid rgba(255,255,255,.10);padding:14px}
-    .brand{font-weight:700;margin:6px 0 18px}
-    .nav button{width:100%;text-align:left;margin:6px 0;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;cursor:pointer}
-    .nav button.active{background:rgba(255,255,255,.16)}
-    .main{padding:16px}
-    .top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
-    .card{background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:14px;margin-bottom:14px}
-    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-    .k{font-size:12px;opacity:.8}
-    .v{font-size:18px;font-weight:700;margin-top:4px}
-    table{width:100%;border-collapse:collapse}
-    th,td{padding:10px;border-bottom:1px solid rgba(255,255,255,.10);font-size:13px;text-align:left;vertical-align:top}
-    select,input,button{border-radius:10px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.35);color:#fff;padding:8px}
-    button{cursor:pointer}
-    .muted{opacity:.8;font-size:12px}
-    .row{display:flex;gap:10px;flex-wrap:wrap}
-    .hidden{display:none}
-    .danger{background:rgba(255,0,0,.10)}
-  </style>
+  <link rel="stylesheet" href="/portal/portal.css"/>
 </head>
 <body>
-<div class="layout">
-  <aside class="side">
-    <div class="brand">CJ Manager Portal</div>
-    <div class="nav">
-      <button data-tab="dash" class="active">Dashboard</button>
-      <button data-tab="bookings">Bookings</button>
-      <button data-tab="employees">Employees</button>
-      <button data-tab="payroll">Payroll</button>
-    </div>
-    <div style="margin-top:18px;">
-      <button id="logoutBtn" style="width:100%;">Logout</button>
-    </div>
-  </aside>
-
-  <main class="main">
-    <div class="top">
-      <div>
-        <h2 style="margin:0;">Manager</h2>
-        <div class="muted" id="meLine">Loading…</div>
-      </div>
-    </div>
-
-    <!-- DASH -->
-    <section id="tab-dash" class="card">
-      <h3 style="margin:0 0 10px;">Totals</h3>
-      <div class="grid" id="totalsGrid"></div>
-      <div class="muted" style="margin-top:10px;">Totals are based on assigned bookings (so payroll matches reality).</div>
-    </section>
-
-    <!-- BOOKINGS -->
-    <section id="tab-bookings" class="card hidden">
-      <h3 style="margin:0 0 10px;">Upcoming bookings</h3>
-      <div class="muted" id="bStatus">Loading…</div>
-      <div style="overflow:auto;margin-top:10px;">
-        <table>
-          <thead><tr>
-            <th>When</th><th>Booking</th><th>Cars</th><th>Total</th><th>Assign</th><th>Actions</th>
-          </tr></thead>
-          <tbody id="bTbody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- EMPLOYEES -->
-    <section id="tab-employees" class="card hidden">
-      <h3 style="margin:0 0 10px;">Employees</h3>
-
-      <div class="card" style="margin:0 0 12px;">
-        <h4 style="margin:0 0 10px;">Create employee</h4>
-        <div class="row">
-          <input id="c_name" placeholder="Full name">
-          <input id="c_dob" placeholder="DOB YYYY-MM-DD">
-          <input id="c_email" placeholder="Email">
-          <input id="c_phone" placeholder="Phone">
-          <button id="createBtn">Create & Email Login</button>
+<div class="portal-bg">
+  <div class="portal-layout">
+    <aside class="portal-side">
+      <div class="portal-brand">
+        <img src="/favicon.png" alt="CJ">
+        <div>
+          <b>Manager Portal</b>
+          <div id="meLine">Loading…</div>
         </div>
-        <div class="muted" id="createMsg" style="margin-top:8px;"></div>
       </div>
 
-      <div style="overflow:auto;">
-        <table>
-          <thead><tr>
-            <th>User</th><th>Contact</th><th>DOB</th><th>Bank (masked)</th><th>Update</th>
-          </tr></thead>
-          <tbody id="eTbody"></tbody>
-        </table>
+      <div class="portal-nav">
+        <button data-tab="dash" class="active">Dashboard</button>
+        <button data-tab="bookings">Bookings</button>
+        <button data-tab="employees">Employees</button>
+        <button data-tab="payroll">Payroll</button>
       </div>
-    </section>
 
-    <!-- PAYROLL -->
-    <section id="tab-payroll" class="card hidden">
-      <h3 style="margin:0 0 10px;">Payroll</h3>
-      <div class="muted">Enter date range (YYYY-MM-DD). The “to” date is exclusive (use next day).</div>
-      <div class="row" style="margin-top:10px;">
-        <input id="p_from" placeholder="2026-02-01">
-        <input id="p_to" placeholder="2026-03-01">
-        <button id="p_run">Generate</button>
-        <button id="p_csv">Download CSV</button>
+      <div style="margin-top:14px;">
+        <button id="logoutBtn" style="width:100%;">Logout</button>
       </div>
-      <pre id="p_out" style="white-space:pre-wrap;margin-top:10px;"></pre>
-    </section>
+    </aside>
 
-  </main>
+    <main class="portal-main">
+      <div class="portal-top">
+        <div>
+          <h2 style="margin:0;">CJ Dashboard</h2>
+          <div class="muted">Week / Month / Year totals + assignments + payroll</div>
+        </div>
+      </div>
+
+      <!-- DASH -->
+      <section id="tab-dash" class="portal-card">
+        <div class="portal-grid" id="totalsGrid"></div>
+        <div class="portal-card" style="margin-top:12px;">
+          <div class="k">Revenue graph</div>
+          <canvas id="revChart" width="900" height="220" style="width:100%;height:220px;margin-top:10px;"></canvas>
+          <div class="small">Graph shows total revenue (assigned bookings) for Week/Month/Year.</div>
+        </div>
+      </section>
+
+      <!-- BOOKINGS -->
+      <section id="tab-bookings" class="portal-card hidden">
+        <div class="portal-row" style="justify-content:space-between;">
+          <div>
+            <b>Upcoming bookings</b>
+            <div class="small" id="bStatus">Loading…</div>
+          </div>
+          <button id="refreshBookings">Refresh</button>
+        </div>
+
+        <div style="overflow:auto;margin-top:10px;">
+          <table>
+            <thead>
+              <tr>
+                <th>When (DD/MM/YYYY)</th>
+                <th>Booking</th>
+                <th>Cars</th>
+                <th>Total</th>
+                <th>Assign</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="bTbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- EMPLOYEES -->
+      <section id="tab-employees" class="portal-card hidden">
+        <b>Employees</b>
+        <div class="small">Create employees + edit contact/bank details.</div>
+
+        <div class="portal-card" style="margin-top:12px;">
+          <b>Create employee</b>
+          <div class="portal-row" style="margin-top:10px;">
+            <input id="c_name" placeholder="Full name">
+            <input id="c_dob" placeholder="DOB YYYY-MM-DD">
+            <input id="c_email" placeholder="Email">
+            <input id="c_phone" placeholder="Phone">
+            <button id="createBtn">Create & Email Login</button>
+          </div>
+          <div class="small" id="createMsg" style="margin-top:8px;"></div>
+        </div>
+
+        <div style="overflow:auto;margin-top:10px;">
+          <table>
+            <thead><tr>
+              <th>User</th><th>Contact</th><th>DOB</th><th>Bank (masked)</th><th>Save</th>
+            </tr></thead>
+            <tbody id="eTbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- PAYROLL -->
+      <section id="tab-payroll" class="portal-card hidden">
+        <b>Payroll</b>
+        <div class="small">Generate totals and download CSV.</div>
+        <div class="portal-row" style="margin-top:10px;">
+          <input id="p_from" placeholder="from YYYY-MM-DD">
+          <input id="p_to" placeholder="to YYYY-MM-DD (exclusive)">
+          <button id="p_run">Generate</button>
+          <button id="p_csv">Download CSV</button>
+        </div>
+        <pre id="p_out" style="white-space:pre-wrap;margin-top:10px;"></pre>
+      </section>
+
+    </main>
+  </div>
 </div>
 
 <script>
@@ -120,6 +126,15 @@
   const tabs = ["dash","bookings","employees","payroll"];
 
   function aud(c){ return (c/100).toLocaleString("en-AU",{style:"currency",currency:"AUD"}); }
+
+  function formatDMY(dt){
+    const d = String(dt.getDate()).padStart(2,"0");
+    const m = String(dt.getMonth()+1).padStart(2,"0");
+    const y = dt.getFullYear();
+    const hh = String(dt.getHours()).padStart(2,"0");
+    const mm = String(dt.getMinutes()).padStart(2,"0");
+    return `${d}/${m}/${y} ${hh}:${mm}`;
+  }
 
   async function getJSON(url){
     const r = await fetch(url,{credentials:"include"});
@@ -145,8 +160,7 @@
       document.getElementById(`tab-${t}`).classList.toggle("hidden", t!==name);
     }
   }
-
-  document.querySelectorAll(".nav button").forEach(b=>{
+  document.querySelectorAll(".portal-nav button").forEach(b=>{
     b.addEventListener("click", ()=>showTab(b.dataset.tab));
   });
 
@@ -161,10 +175,47 @@
     $("meLine").textContent = `${me.user.username} • ${me.user.email}`;
   }
 
+  function drawBarChart(canvas, labels, values){
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0,0,W,H);
+
+    // background
+    ctx.fillStyle = "rgba(255,255,255,0.03)";
+    ctx.fillRect(0,0,W,H);
+
+    const pad = 24;
+    const max = Math.max(...values, 1);
+    const barW = (W - pad*2) / values.length * 0.6;
+    const gap = (W - pad*2) / values.length * 0.4;
+
+    ctx.strokeStyle = "rgba(255,255,255,0.12)";
+    ctx.beginPath();
+    ctx.moveTo(pad, H-pad);
+    ctx.lineTo(W-pad, H-pad);
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(255,255,255,0.22)";
+    values.forEach((v,i)=>{
+      const x = pad + i*(barW+gap) + gap/2;
+      const h = (H - pad*2) * (v/max);
+      const y = (H - pad) - h;
+      ctx.fillRect(x,y,barW,h);
+    });
+
+    ctx.fillStyle = "rgba(255,255,255,0.75)";
+    ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto";
+    labels.forEach((lab,i)=>{
+      const x = pad + i*(barW+gap) + gap/2;
+      ctx.fillText(lab, x, H-6);
+    });
+  }
+
   async function loadSummary(){
     const s = await getJSON("/api/portal/manager/summary");
-    const g = $("totalsGrid");
-    g.innerHTML = "";
+
+    const grid = $("totalsGrid");
+    grid.innerHTML = "";
 
     const blocks = [
       ["This week", s.week],
@@ -172,17 +223,19 @@
       ["This year", s.year],
     ];
 
-    for(const [label, v] of blocks){
+    for(const [label,v] of blocks){
       const div = document.createElement("div");
-      div.className="card";
-      div.style.margin="0";
+      div.className = "portal-card";
+      div.style.margin = "0";
       div.innerHTML = `
-        <div class="k">${label} total</div><div class="v">${v.total_fmt}</div>
-        <div class="k" style="margin-top:8px;">Employees owed</div><div class="v">${v.employee_fmt}</div>
-        <div class="k" style="margin-top:8px;">Each manager</div><div class="v">${v.manager_each_fmt}</div>
+        <div class="k">${label} total</div>
+        <div class="v">${v.total_fmt}</div>
+        <div class="small">Employees owed: <b>${v.employee_fmt}</b> • Each manager: <b>${v.manager_each_fmt}</b></div>
       `;
-      g.appendChild(div);
+      grid.appendChild(div);
     }
+
+    drawBarChart($("revChart"), ["Week","Month","Year"], [s.week.total_cents, s.month.total_cents, s.year.total_cents]);
   }
 
   async function loadBookings(){
@@ -195,10 +248,14 @@
 
     for(const b of data.bookings){
       const tr = document.createElement("tr");
-      const when = new Date(b.start_time+"Z");
+
+      // FIXED: do NOT append "Z"
+      const when = new Date(b.start_time);
+      const whenText = isNaN(when.getTime()) ? (b.start_time || "") : formatDMY(when);
+
       tr.innerHTML = `
-        <td>${when.toLocaleString()}</td>
-        <td><b>${b.title||""}</b><div class="muted">${b.location||""}</div></td>
+        <td>${whenText}</td>
+        <td><b>${b.title||""}</b><div class="small">${b.location||""}</div></td>
         <td>${b.cars_count}</td>
         <td>${aud(b.total_price_cents)}</td>
         <td></td>
@@ -215,26 +272,26 @@
         const id = Number(sel.value);
         if(!id) return alert("Pick an employee");
         await postJSON("/api/portal/manager/assign-booking", { booking_id: b.id, employee_user_id: id });
-        alert("Assigned!");
+        alert("Assigned ✅");
         await loadSummary();
       });
 
       const doneBtn = document.createElement("button");
-      doneBtn.textContent = "Mark complete";
-      doneBtn.className = "danger";
+      doneBtn.textContent = "Mark done";
       doneBtn.addEventListener("click", async ()=>{
         await postJSON("/api/portal/manager/complete-booking", { booking_id: b.id });
-        alert("Completed!");
+        alert("Marked done ✅ (employee will no longer see this job)");
       });
 
       const wrap = document.createElement("div");
-      wrap.className="row";
+      wrap.className = "portal-row";
       wrap.appendChild(assignBtn);
       wrap.appendChild(doneBtn);
       tr.children[5].appendChild(wrap);
 
       tbody.appendChild(tr);
     }
+
     $("bStatus").textContent = `Loaded ${data.bookings.length} upcoming bookings`;
   }
 
@@ -246,19 +303,19 @@
     for(const e of (j.employees||[])){
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td><b>${e.username}</b><div class="muted">${e.full_name||""}</div></td>
+        <td><b>${e.username}</b><div class="small">${e.full_name||""}</div></td>
         <td>
-          <div class="muted">Email</div><input value="${e.email||""}" style="width:220px" data-k="email">
-          <div class="muted" style="margin-top:6px;">Phone</div><input value="${e.phone||""}" style="width:220px" data-k="phone">
-          <div class="muted" style="margin-top:6px;">Active (1/0)</div><input value="${e.is_active}" style="width:60px" data-k="is_active">
+          <div class="k">Email</div><input value="${e.email||""}" style="width:220px" data-k="email">
+          <div class="k" style="margin-top:6px;">Phone</div><input value="${e.phone||""}" style="width:220px" data-k="phone">
+          <div class="k" style="margin-top:6px;">Active (1/0)</div><input value="${e.is_active}" style="width:70px" data-k="is_active">
         </td>
         <td>
-          <div class="muted">DOB</div><input value="${e.dob||""}" style="width:140px" data-k="dob">
+          <div class="k">DOB</div><input value="${e.dob||""}" style="width:140px" data-k="dob">
         </td>
         <td>
-          <div class="muted">${e.bank?.hasBank ? "Set" : "Not set"} • Locked: ${e.bank_locked ? "YES" : "NO"}</div>
-          <div class="muted">BSB</div><input placeholder="${e.bank.bsbMasked}" style="width:120px" data-k="bsb">
-          <div class="muted" style="margin-top:6px;">Account</div><input placeholder="${e.bank.accountMasked}" style="width:160px" data-k="account">
+          <div class="k">${e.bank?.hasBank ? "Set" : "Not set"} • Locked: ${e.bank_locked ? "YES" : "NO"}</div>
+          <div class="k">BSB</div><input placeholder="${e.bank.bsbMasked}" style="width:120px" data-k="bsb">
+          <div class="k" style="margin-top:6px;">Account</div><input placeholder="${e.bank.accountMasked}" style="width:160px" data-k="account">
         </td>
         <td><button>Save</button></td>
       `;
@@ -267,11 +324,9 @@
         const inputs = tr.querySelectorAll("input[data-k]");
         const payload = { employee_user_id: e.id };
         inputs.forEach(i=>payload[i.dataset.k]=i.value.trim());
-        // convert is_active
         if (payload.is_active !== "") payload.is_active = Number(payload.is_active);
-
         await postJSON("/api/portal/manager/employees-update", payload);
-        alert("Saved!");
+        alert("Saved ✅");
         await loadEmployees();
       });
 
@@ -289,7 +344,7 @@
         phone: $("c_phone").value.trim(),
       };
       const r = await postJSON("/api/portal/manager/create-employee", body);
-      $("createMsg").textContent = `Created ${r.employee.username} and emailed login details.`;
+      $("createMsg").textContent = `Created ${r.employee.username} and emailed login details ✅`;
       $("c_name").value = $("c_dob").value = $("c_email").value = $("c_phone").value = "";
       await loadEmployees();
     }catch(e){
@@ -297,13 +352,14 @@
     }
   });
 
+  $("refreshBookings").addEventListener("click", loadBookings);
+
   $("p_run").addEventListener("click", async ()=>{
     const from = $("p_from").value.trim();
     const to = $("p_to").value.trim();
     const j = await getJSON(`/api/portal/manager/payroll?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
     $("p_out").textContent = JSON.stringify(j, null, 2);
   });
-
   $("p_csv").addEventListener("click", ()=>{
     const from = $("p_from").value.trim();
     const to = $("p_to").value.trim();

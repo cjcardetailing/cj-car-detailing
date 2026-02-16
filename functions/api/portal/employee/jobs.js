@@ -7,15 +7,17 @@ export async function onRequestGet(context) {
 
   const rows = await env.DB.prepare(
     `SELECT b.start_time, b.end_time, b.title, b.location,
-            ba.cars_count, ba.total_price_cents, ba.employee_pay_cents
+            ba.cars_count, ba.total_price_cents, ba.employee_pay_cents, ba.completed_at
      FROM booking_assignments ba
      JOIN bookings b ON b.id = ba.booking_id
      WHERE ba.employee_user_id = ?
+       AND ba.completed_at IS NULL
      ORDER BY datetime(b.start_time) ASC
      LIMIT 200`
   ).bind(auth.user.id).all();
 
   return new Response(JSON.stringify({ ok: true, jobs: rows.results || [] }), {
-    status: 200, headers: { "content-type": "application/json" }
+    status: 200,
+    headers: { "content-type": "application/json" }
   });
 }

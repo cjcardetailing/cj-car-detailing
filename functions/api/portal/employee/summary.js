@@ -6,17 +6,19 @@ export async function onRequestGet(context){
   const auth = await requireRole(env, request, "EMPLOYEE");
   if (!auth.ok) return auth.res;
 
-  const q = async (rangeSql) =>
+  const q = async (whereSql) =>
     env.DB.prepare(
       `SELECT COALESCE(SUM(ba.employee_pay_cents),0) AS pay_cents,
               COALESCE(COUNT(*),0) AS jobs
        FROM booking_assignments ba
        JOIN bookings b ON b.id = ba.booking_id
        WHERE ba.employee_user_id = ?
-         AND ${rangeSql}`
+         AND ba.completed_at IS NULL
+         AND ${whereSql}`
     ).bind(auth.user.id).first();
 
-  const week = await q(`datetime(b.start_time) >= datetime('now','weekday 1','-7 days') AND datetime(b.start_time) < datetime('now','weekday 1')`);
+  // Week number + year (Mon-based in SQLite with %W)
+  const week = await q(`strftime('%Y-%W', b.start_time) = strftime('%Y-%W','now')`);
   const month = await q(`strftime('%Y-%m', b.start_time) = strftime('%Y-%m','now')`);
   const year = await q(`strftime('%Y', b.start_time) = strftime('%Y','now')`);
 
