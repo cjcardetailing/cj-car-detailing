@@ -172,8 +172,11 @@ export async function onRequestPost(context) {
     availabilityPayload = null;
   }
   const ranges = getRangesForBooking(availabilityPayload, startAt);
+  const hasAvailabilityConfigured = ranges.length > 0;
 
-  if (!isWithinAvailability(ranges, startAt, endAt)) {
+  // Only enforce the time window when availability is actually configured.
+  // If the employee has not saved availability yet, allow managers to assign.
+  if (hasAvailabilityConfigured && !isWithinAvailability(ranges, startAt, endAt)) {
     return new Response(JSON.stringify({
       error: "You can't assign this booking because it is outside that employee's saved availability."
     }), {

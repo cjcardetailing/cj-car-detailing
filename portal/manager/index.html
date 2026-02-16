@@ -674,10 +674,18 @@
       assignBtn.addEventListener("click", async ()=>{
         const id = Number(sel.value);
         if(!id) return alert("Pick an employee");
-        await postJSON("/api/portal/manager/assign-booking", { booking_id: b.id, employee_user_id: id });
-        alert("Assigned ✅");
-        await loadBookings();
-        await loadSummary();
+        assignBtn.disabled = true;
+        try{
+          await postJSON("/api/portal/manager/assign-booking", { booking_id: b.id, employee_user_id: id });
+          alert("Assigned ✅");
+          await loadBookings();
+          await loadSummary();
+        }catch(err){
+          alert(`Could not assign booking: ${err?.message || "Unknown error"}`);
+          console.error("Assign booking failed", err);
+        }finally{
+          assignBtn.disabled = false;
+        }
       });
       tr.children[4].appendChild(assignBtn);
 
