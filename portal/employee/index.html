@@ -62,6 +62,27 @@
         <div class="portal-grid" id="earnGrid"></div>
 
         <div class="portal-card" style="margin-top:12px;">
+          <div class="portal-row" style="justify-content:space-between;">
+            <div>
+              <div class="k">Latest paycheck (weekly Sunday payroll)</div>
+              <div class="v" id="paycheckAmount">$0.00</div>
+            </div>
+            <div class="small" id="paycheckMeta">Loading…</div>
+          </div>
+          <div style="overflow:auto;margin-top:8px;">
+            <table>
+              <thead><tr>
+                <th>When (DD/MM/YYYY)</th>
+                <th>Job</th>
+                <th>Cars</th>
+                <th>Pay</th>
+              </tr></thead>
+              <tbody id="paycheckT"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="portal-card" style="margin-top:12px;">
           <div class="k">Earnings over time</div>
           <div class="chart-container" id="earnChartWrap">
             <div class="chart-tooltip" id="earnTooltip"></div>
@@ -135,6 +156,12 @@
     const hh = String(dt.getHours()).padStart(2,"0");
     const mm = String(dt.getMinutes()).padStart(2,"0");
     return `${d}/${m}/${y} ${hh}:${mm}`;
+  }
+
+  function toDMYFromISO(iso){
+    const m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return iso || "";
+    return `${m[3]}/${m[2]}/${m[1]}`;
   }
 
   async function getJSON(url){
@@ -314,6 +341,36 @@
     }
   }
 
+  async function loadPaycheck(){
+    const j = await getJSON("/api/portal/employee/paycheck");
+    const p = j.paycheck || {};
+    $("paycheckAmount").textContent = p.pay_fmt || aud(0);
+    $("paycheckMeta").textContent =
+      `Range: ${toDMYFromISO(p.from || "")} to ${toDMYFromISO(p.to || "")} (end exclusive) • Jobs: ${Number(p.jobs || 0)} • Cars: ${Number(p.cars_washed || 0)}`;
+
+    const tbody = $("paycheckT");
+    tbody.innerHTML = "";
+    const entries = j.entries || [];
+    if (!entries.length) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="4">No jobs in the latest payroll week.</td>`;
+      tbody.appendChild(tr);
+      return;
+    }
+
+    for (const x of entries) {
+      const when = new Date(x.start_time);
+      const whenText = isNaN(when.getTime()) ? (x.start_time || "") : formatDMY(when);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${whenText}</td>
+        <td><b>${x.title || ""}</b><div class="small">${x.location || ""}</div></td>
+        <td>${Number(x.cars_count || 0)}</td>
+        <td>${aud(Number(x.employee_pay_cents || 0))}</td>`;
+      tbody.appendChild(tr);
+    }
+  }
+
   function renderEarningsCards(){
     if (!earningsCache) return;
     const period = $("earnPeriod").value || "week";
@@ -402,6 +459,7 @@
     await ensureEmployee();
     await loadSidebar();
     await loadEarnings();
+    await loadPaycheck();
     await loadProfile();
     await loadJobs();
     await loadAvail();

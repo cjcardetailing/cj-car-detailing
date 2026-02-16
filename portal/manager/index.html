@@ -81,7 +81,8 @@
           <button id="refreshBookings" class="secondary">Refresh</button>
         </div>
 
-        <div style="overflow:auto;margin-top:10px;">
+        <div class="small" style="margin-top:10px;"><b>Unassigned bookings</b></div>
+        <div style="overflow:auto;margin-top:8px;">
           <table>
             <thead>
               <tr>
@@ -89,13 +90,15 @@
                 <th>Booking</th>
                 <th>Cars</th>
                 <th>Total</th>
-                <th>Assign</th>
-                <th>Actions</th>
+                <th>Assign to employee</th>
               </tr>
             </thead>
             <tbody id="bTbody"></tbody>
           </table>
         </div>
+
+        <div class="small" style="margin-top:16px;"><b>Assigned jobs by employee</b></div>
+        <div id="assignedBoard" style="margin-top:8px;"></div>
       </section>
 
       <!-- EMPLOYEES -->
@@ -398,11 +401,18 @@
     const data = await getJSON("/api/portal/manager/bookings?mode=upcoming&limit=80");
     const emp = await getJSON("/api/portal/manager/employees-basic");
     const employees = emp.employees || [];
+    const byEmployeeId = new Map(employees.map(e => [Number(e.id), e]));
 
     const tbody = $("bTbody");
     tbody.innerHTML = "";
+    const assignedBoard = $("assignedBoard");
+    assignedBoard.innerHTML = "";
 
-    for(const b of data.bookings){
+    const allBookings = data.bookings || [];
+    const unassigned = allBookings.filter(b => !b.employee_user_id);
+    const assigned = allBookings.filter(b => !!b.employee_user_id);
+
+    for(const b of unassigned){
       const tr = document.createElement("tr");
 
       const when = new Date(b.start_time); // IMPORTANT: no "Z"
@@ -413,7 +423,6 @@
         <td><b>${b.title||""}</b><div class="small">${b.location||""}</div></td>
         <td>${b.cars_count}</td>
         <td>${aud(b.total_price_cents)}</td>
-        <td></td>
         <td></td>
       `;
 
@@ -428,27 +437,105 @@
         if(!id) return alert("Pick an employee");
         await postJSON("/api/portal/manager/assign-booking", { booking_id: b.id, employee_user_id: id });
         alert("Assigned ✅");
+        await loadBookings();
         await loadSummary();
       });
-
-      const doneBtn = document.createElement("button");
-      doneBtn.textContent = "Mark done";
-      doneBtn.className = "secondary";
-      doneBtn.addEventListener("click", async ()=>{
-        await postJSON("/api/portal/manager/complete-booking", { booking_id: b.id });
-        alert("Marked done ✅ (employee job will disappear)");
-      });
-
-      const wrap = document.createElement("div");
-      wrap.className = "portal-row";
-      wrap.appendChild(assignBtn);
-      wrap.appendChild(doneBtn);
-      tr.children[5].appendChild(wrap);
+      tr.children[4].appendChild(assignBtn);
 
       tbody.appendChild(tr);
     }
 
-    $("bStatus").textContent = `Loaded ${data.bookings.length} upcoming bookings`;
+    if (!unassigned.length) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="5">No unassigned upcoming bookings.</td>`;
+      tbody.appendChild(tr);
+    }
+
+    if (!assigned.length) {
+      const empty = document.createElement("div");
+      empty.className = "portal-card";
+      empty.style.margin = "0";
+      empty.textContent = "No assigned jobs right now.";
+      assignedBoard.appendChild(empty);
+    } else {
+      const groups = new Map();
+      for (const b of assigned) {
+        const id = Number(b.employee_user_id);
+        if (!groups.has(id)) groups.set(id, []);
+        groups.get(id).push(b);
+      }
+
+      const groupIds = [...groups.keys()].sort((a, b) => {
+        const aEmp = byEmployeeId.get(a);
+        const bEmp = byEmployeeId.get(b);
+        const aName = (aEmp?.full_name || aEmp?.username || "").toLowerCase();
+        const bName = (bEmp?.full_name || bEmp?.username || "").toLowerCase();
+        return aName.localeCompare(bName);
+      });
+
+      for (const id of groupIds) {
+        const jobs = groups.get(id) || [];
+        const e = byEmployeeId.get(id);
+        const fallbackName = jobs[0]?.assigned_employee?.full_name || jobs[0]?.assigned_employee?.username || `Employee #${id}`;
+        const heading = e ? (e.full_name || e.username) : fallbackName;
+        const sub = e ? e.username : (jobs[0]?.assigned_employee?.username || "");
+
+        const card = document.createElement("div");
+        card.className = "portal-card assigned-group";
+        card.style.margin = "0 0 10px 0";
+        card.innerHTML = `
+          <div class="portal-row assigned-group-head" style="justify-content:space-between;">
+            <div>
+              <b>${escapeHtml(heading)}</b>
+              <div class="small">${escapeHtml(sub)} • ${jobs.length} job${jobs.length === 1 ? "" : "s"}</div>
+            </div>
+          </div>
+          <div style="overflow:auto;margin-top:8px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>When (DD/MM/YYYY)</th>
+                  <th>Booking</th>
+                  <th>Cars</th>
+                  <th>Total</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        `;
+
+        const groupTbody = card.querySelector("tbody");
+        for (const b of jobs) {
+          const tr = document.createElement("tr");
+          const when = new Date(b.start_time);
+          const whenText = isNaN(when.getTime()) ? (b.start_time || "") : formatDMY(when);
+          tr.innerHTML = `
+            <td>${whenText}</td>
+            <td><b>${escapeHtml(b.title || "")}</b><div class="small">${escapeHtml(b.location || "")}</div></td>
+            <td>${Number(b.cars_count || 0)}</td>
+            <td>${aud(Number(b.total_price_cents || 0))}</td>
+            <td></td>
+          `;
+
+          const doneBtn = document.createElement("button");
+          doneBtn.textContent = "Mark done";
+          doneBtn.className = "secondary";
+          doneBtn.addEventListener("click", async ()=>{
+            await postJSON("/api/portal/manager/complete-booking", { booking_id: b.id });
+            await loadBookings();
+            await loadSummary();
+          });
+          tr.children[4].appendChild(doneBtn);
+          groupTbody.appendChild(tr);
+        }
+
+        assignedBoard.appendChild(card);
+      }
+    }
+
+    $("bStatus").textContent = `Loaded ${allBookings.length} upcoming bookings • ${unassigned.length} unassigned • ${assigned.length} assigned`;
   }
 
   async function loadEmployees(){

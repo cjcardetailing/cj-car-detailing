@@ -184,6 +184,15 @@ body {
   background: var(--portal-bg-card);
 }
 
+.assigned-group {
+  border-color: rgba(201, 162, 39, 0.35);
+}
+
+.assigned-group-head {
+  border-bottom: 1px solid var(--portal-border);
+  padding-bottom: 6px;
+}
+
 .portal-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -49,18 +49,34 @@ export async function onRequestGet(context) {
   let rows;
   if (mode === "past") {
     rows = await env.DB.prepare(
-      `SELECT id, cal_booking_id, status, start_time, end_time, title, location, payload_json
-       FROM bookings
-       WHERE start_time < datetime('now') AND status='ACTIVE'
-       ORDER BY start_time DESC
+      `SELECT
+         b.id, b.cal_booking_id, b.status, b.start_time, b.end_time, b.title, b.location, b.payload_json,
+         ba.employee_user_id, ba.completed_at,
+         u.username AS assigned_username,
+         ep.full_name AS assigned_full_name
+       FROM bookings b
+       LEFT JOIN booking_assignments ba ON ba.booking_id = b.id
+       LEFT JOIN users u ON u.id = ba.employee_user_id
+       LEFT JOIN employee_profiles ep ON ep.user_id = ba.employee_user_id
+       WHERE b.start_time < datetime('now') AND b.status='ACTIVE'
+       ORDER BY b.start_time DESC
        LIMIT ?`
     ).bind(limit).all();
   } else {
     rows = await env.DB.prepare(
-      `SELECT id, cal_booking_id, status, start_time, end_time, title, location, payload_json
-       FROM bookings
-       WHERE start_time >= datetime('now') AND status='ACTIVE'
-       ORDER BY start_time ASC
+      `SELECT
+         b.id, b.cal_booking_id, b.status, b.start_time, b.end_time, b.title, b.location, b.payload_json,
+         ba.employee_user_id, ba.completed_at,
+         u.username AS assigned_username,
+         ep.full_name AS assigned_full_name
+       FROM bookings b
+       LEFT JOIN booking_assignments ba ON ba.booking_id = b.id
+       LEFT JOIN users u ON u.id = ba.employee_user_id
+       LEFT JOIN employee_profiles ep ON ep.user_id = ba.employee_user_id
+       WHERE b.start_time >= datetime('now')
+         AND b.status='ACTIVE'
+         AND (ba.completed_at IS NULL OR ba.booking_id IS NULL)
+       ORDER BY b.start_time ASC
        LIMIT ?`
     ).bind(limit).all();
   }
@@ -80,6 +96,15 @@ export async function onRequestGet(context) {
       cars_count: cars,
       unit_price_cents: unit,
       total_price_cents: total,
+      employee_user_id: r.employee_user_id ? Number(r.employee_user_id) : null,
+      completed_at: r.completed_at || null,
+      assigned_employee: r.employee_user_id
+        ? {
+            user_id: Number(r.employee_user_id),
+            username: r.assigned_username || "",
+            full_name: r.assigned_full_name || "",
+          }
+        : null,
     };
   });
 
