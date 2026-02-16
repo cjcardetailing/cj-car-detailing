@@ -321,6 +321,22 @@ tbody tr:hover {
   background: rgba(0, 0, 0, 0.02);
 }
 
+/* Keep manual pay history text readable on light cards */
+#tab-manualpay table th {
+  color: #544c40 !important;
+}
+
+#tab-manualpay table td,
+#tab-manualpay table td b,
+#tab-manualpay table td .small,
+#tab-manualpay table td * {
+  color: var(--portal-text) !important;
+}
+
+#tab-manualpay table td .small {
+  color: var(--portal-muted2) !important;
+}
+
 .hidden {
   display: none;
 }
