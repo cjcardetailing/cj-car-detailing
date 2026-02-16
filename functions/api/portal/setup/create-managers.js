@@ -13,7 +13,7 @@ async function hashPassword(password) {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const key = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);
   const bits = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", salt, iterations: 150000, hash: "SHA-256" },
+    { name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" },
     key,
     256
   );
@@ -21,7 +21,7 @@ async function hashPassword(password) {
 
   const saltHex = [...salt].map(b => b.toString(16).padStart(2,"0")).join("");
   const hashHex = [...hashBytes].map(b => b.toString(16).padStart(2,"0")).join("");
-  return `pbkdf2_sha256$150000$${saltHex}$${hashHex}`;
+  return `pbkdf2_sha256$100000$${saltHex}$${hashHex}`;
 }
 
 function json(status, obj) {
