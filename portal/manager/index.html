@@ -290,8 +290,8 @@
   async function ensureManager(){
     const me = await getJSON("/api/portal/me");
     if(me?.user?.role!=="MANAGER") location.href="/portal/";
-    $("sideLine").textContent = `${me.user.username}`;
-    $("pageTitle").textContent = `Welcome ${me.user.username}`;
+    $("sideLine").textContent = me.user.display_name || me.user.username;
+    $("pageTitle").textContent = `Welcome ${me.user.display_name || me.user.username}`;
   }
 
   async function loadSummary(){
