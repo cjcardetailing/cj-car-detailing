@@ -1,18 +1,6 @@
 import { requireRole } from "../../../_lib/requireAuth.js";
-import { decryptString } from "../../../_lib/crypto.js";
 import { formatAUD } from "../../../_lib/money.js";
 import { isManualPayTableMissingError } from "../../../_lib/manualPay.js";
-
-function byteLen(str) {
-  return new TextEncoder().encode(str).length;
-}
-
-function pdfEscape(str) {
-  return String(str ?? "")
-    .replaceAll("\\", "\\\\")
-    .replaceAll("(", "\\(")
-    .replaceAll(")", "\\)");
-}
 
 function toDMY(iso) {
   const m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -20,63 +8,283 @@ function toDMY(iso) {
   return `${m[3]}/${m[2]}/${m[1]}`;
 }
 
-function clip(s, n) {
-  const t = String(s ?? "");
-  if (t.length <= n) return t;
-  return `${t.slice(0, Math.max(0, n - 1))}...`;
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
-function buildPdf(pagesLines) {
-  const pageCount = pagesLines.length || 1;
-  const objects = [];
+function perCarRateCentsFromTitle(title) {
+  const t = String(title || "").toLowerCase();
+  const isInsideAndOut = t.includes("inside and out") || t.includes("inside & out");
+  const hasInside = t.includes("inside") || t.includes("interior");
+  const hasOutside = t.includes("outside") || t.includes("exterior");
+  if (isInsideAndOut || (hasInside && hasOutside)) return 2000; // inside + outside
+  if (hasInside) return 1500; // inside
+  if (hasOutside) return 1000; // outside
+  return null;
+}
 
-  objects[1] = `<< /Type /Catalog /Pages 2 0 R >>`;
+function serviceLabelFromTitle(title) {
+  const t = String(title || "").toLowerCase();
+  const isInsideAndOut = t.includes("inside and out") || t.includes("inside & out");
+  const hasInside = t.includes("inside") || t.includes("interior");
+  const hasOutside = t.includes("outside") || t.includes("exterior");
+  if (isInsideAndOut || (hasInside && hasOutside)) return "Inside + Outside";
+  if (hasInside) return "Inside";
+  if (hasOutside) return "Outside";
+  const raw = String(title || "").trim();
+  return raw || "Car wash";
+}
 
-  const kids = [];
-  for (let i = 0; i < pageCount; i++) {
-    const pageObj = 3 + i * 2;
-    const contentObj = 4 + i * 2;
-    kids.push(`${pageObj} 0 R`);
+function toDisplayDateTime(value) {
+  const dt = new Date(value);
+  if (Number.isNaN(dt.getTime())) return String(value || "");
+  return dt.toLocaleString("en-AU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
-    const lines = pagesLines[i] || [""];
-    let y = 805;
-    let content = "BT\n/F1 10 Tf\n";
-    for (const line of lines) {
-      content += `1 0 0 1 36 ${y} Tm (${pdfEscape(line)}) Tj\n`;
-      y -= 14;
+function renderSlipSection({ employeeName, rows, from, to }) {
+  let totalCars = 0;
+  let totalPayCents = 0;
+
+  const lineRows = rows.map((row) => {
+    const cars = Math.max(0, Number(row.cars_count || 0));
+    const fallbackRate = cars > 0
+      ? Math.round(Number(row.employee_pay_cents || 0) / cars)
+      : Number(row.employee_pay_cents || 0);
+    const rateCents = perCarRateCentsFromTitle(row.title) ?? Math.max(0, fallbackRate);
+    const thisPayCents = rateCents * cars;
+    totalCars += cars;
+    totalPayCents += thisPayCents;
+    return `
+      <tr>
+        <td>
+          <div class="service">${escapeHtml(serviceLabelFromTitle(row.title))}</div>
+          <div class="meta">${escapeHtml(toDisplayDateTime(row.start_time))}</div>
+        </td>
+        <td class="num">${cars}</td>
+        <td class="money">${escapeHtml(formatAUD(rateCents))}</td>
+        <td class="money strong">${escapeHtml(formatAUD(thisPayCents))}</td>
+      </tr>
+    `;
+  }).join("");
+
+  const tableBody = lineRows || `
+    <tr>
+      <td colspan="4" class="empty">No jobs in this pay period.</td>
+    </tr>
+  `;
+
+  return `
+    <section class="slip-page">
+      <header class="slip-header">
+        <div class="logo-wrap">
+          <img class="logo" src="/images/favicon.png" alt="CJ logo" onerror="this.src='/favicon.png'"/>
+        </div>
+        <div class="head-right">
+          <h1>Pay Slip</h1>
+          <div class="detail"><span>Employee</span><b>${escapeHtml(employeeName)}</b></div>
+          <div class="detail"><span>Period</span><b>${escapeHtml(toDMY(from))} - ${escapeHtml(toDMY(to))}</b></div>
+        </div>
+      </header>
+
+      <table class="slip-table">
+        <thead>
+          <tr>
+            <th>Service</th>
+            <th>Amount of Cars</th>
+            <th>Rate (Per Car)</th>
+            <th>This Pay</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableBody}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td class="strong">Total</td>
+            <td class="num strong">${totalCars}</td>
+            <td></td>
+            <td class="money strong">${escapeHtml(formatAUD(totalPayCents))}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </section>
+  `;
+}
+
+function renderPayslipHtml(slipsHtml) {
+  const generatedAt = new Date().toLocaleString("en-AU");
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Payroll Payslips</title>
+  <style>
+    :root {
+      --ink: #171717;
+      --muted: #666;
+      --line: #d9d9d9;
+      --bg: #f5f5f5;
+      --card: #ffffff;
     }
-    content += "ET";
-
-    objects[contentObj] = `<< /Length ${byteLen(content)} >>\nstream\n${content}\nendstream`;
-    objects[pageObj] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Courier >> >> >> /Contents ${contentObj} 0 R >>`;
-  }
-
-  objects[2] = `<< /Type /Pages /Count ${pageCount} /Kids [${kids.join(" ")}] >>`;
-
-  let out = "%PDF-1.4\n";
-  const offsets = [0];
-  for (let i = 1; i < objects.length; i++) {
-    offsets[i] = byteLen(out);
-    out += `${i} 0 obj\n${objects[i]}\nendobj\n`;
-  }
-  const xrefPos = byteLen(out);
-  out += `xref\n0 ${objects.length}\n`;
-  out += "0000000000 65535 f \n";
-  for (let i = 1; i < objects.length; i++) {
-    out += `${String(offsets[i]).padStart(10, "0")} 00000 n \n`;
-  }
-  out += `trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${xrefPos}\n%%EOF`;
-
-  return new TextEncoder().encode(out);
-}
-
-function paginateLines(lines, linesPerPage = 54) {
-  if (!lines.length) return [[""]];
-  const pages = [];
-  for (let i = 0; i < lines.length; i += linesPerPage) {
-    pages.push(lines.slice(i, i + linesPerPage));
-  }
-  return pages;
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    .topbar {
+      position: sticky;
+      top: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 18px;
+      background: #111;
+      color: #fff;
+      z-index: 5;
+    }
+    .topbar button {
+      border: 0;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .wrap {
+      max-width: 980px;
+      margin: 22px auto;
+      padding: 0 10px 30px;
+    }
+    .slip-page {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 26px;
+      margin-bottom: 18px;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .slip-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: flex-start;
+      margin-bottom: 20px;
+    }
+    .logo-wrap {
+      flex: 0 0 auto;
+      width: 220px;
+    }
+    .logo {
+      width: 190px;
+      height: 190px;
+      object-fit: contain;
+      border-radius: 12px;
+      display: block;
+    }
+    .head-right h1 {
+      margin: 0 0 12px;
+      font-size: 38px;
+      line-height: 1;
+    }
+    .detail {
+      display: grid;
+      grid-template-columns: 90px 1fr;
+      gap: 10px;
+      margin: 7px 0;
+      align-items: baseline;
+    }
+    .detail span {
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .detail b {
+      font-size: 17px;
+    }
+    .slip-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    .slip-table th, .slip-table td {
+      border-bottom: 1px solid var(--line);
+      padding: 12px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    .slip-table th {
+      font-size: 15px;
+      background: #f9f9f9;
+    }
+    .slip-table td:nth-child(2),
+    .slip-table td:nth-child(3),
+    .slip-table td:nth-child(4),
+    .slip-table th:nth-child(2),
+    .slip-table th:nth-child(3),
+    .slip-table th:nth-child(4) {
+      text-align: right;
+      white-space: nowrap;
+    }
+    .service {
+      font-weight: 600;
+    }
+    .meta {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .empty {
+      color: var(--muted);
+      text-align: center !important;
+      padding: 24px !important;
+    }
+    .money { font-variant-numeric: tabular-nums; }
+    .num { font-variant-numeric: tabular-nums; }
+    .strong { font-weight: 700; }
+    tfoot td {
+      border-top: 2px solid #222;
+      border-bottom: 0;
+      padding-top: 14px;
+    }
+    @media print {
+      body { background: #fff; }
+      .topbar { display: none; }
+      .wrap { max-width: none; margin: 0; padding: 0; }
+      .slip-page {
+        border: 0;
+        border-radius: 0;
+        margin: 0;
+        min-height: 100vh;
+        page-break-after: always;
+      }
+      .slip-page:last-child { page-break-after: auto; }
+      @page { size: A4; margin: 10mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div>Payslips generated: ${escapeHtml(generatedAt)}</div>
+    <button onclick="window.print()">Print / Save PDF</button>
+  </div>
+  <main class="wrap">
+    ${slipsHtml}
+  </main>
+</body>
+</html>`;
 }
 
 export async function onRequestGet(context) {
@@ -95,20 +303,21 @@ export async function onRequestGet(context) {
   }
 
   let rows;
-  let totals;
-  let payRule = "Auto 20% rounded up to nearest $5 per booking + manual pay entries";
   try {
     rows = await env.DB.prepare(
       `WITH payroll_rows AS (
         SELECT
           ba.employee_user_id AS employee_user_id,
-          ba.employee_pay_cents AS employee_pay_cents,
-          ba.total_price_cents AS total_price_cents,
-          ba.manager_each_cents AS manager_each_cents,
+          b.start_time AS start_time,
+          b.title AS title,
           ba.cars_count AS cars_count,
-          1 AS jobs
+          ba.employee_pay_cents AS employee_pay_cents,
+          u.username AS username,
+          ep.full_name AS full_name
         FROM booking_assignments ba
         JOIN bookings b ON b.id = ba.booking_id
+        JOIN users u ON u.id = ba.employee_user_id
+        LEFT JOIN employee_profiles ep ON ep.user_id = u.id
         WHERE datetime(b.start_time) >= datetime(?) AND datetime(b.start_time) < datetime(?)
           AND (? IS NULL OR ba.employee_user_id = ?)
 
@@ -116,158 +325,100 @@ export async function onRequestGet(context) {
 
         SELECT
           mpe.employee_user_id AS employee_user_id,
-          mpe.pay_cents AS employee_pay_cents,
-          0 AS total_price_cents,
-          0 AS manager_each_cents,
+          mpe.job_time AS start_time,
+          mpe.job_type AS title,
           mpe.cars_count AS cars_count,
-          1 AS jobs
+          mpe.pay_cents AS employee_pay_cents,
+          u.username AS username,
+          ep.full_name AS full_name
         FROM manual_pay_entries mpe
+        JOIN users u ON u.id = mpe.employee_user_id
+        LEFT JOIN employee_profiles ep ON ep.user_id = u.id
         WHERE datetime(mpe.job_time) >= datetime(?) AND datetime(mpe.job_time) < datetime(?)
           AND (? IS NULL OR mpe.employee_user_id = ?)
       )
       SELECT
           pr.employee_user_id,
-          u.username,
-          u.email,
-          u.phone,
-          ep.full_name,
-          ep.bank_bsb_enc,
-          ep.bank_account_enc,
-          SUM(pr.employee_pay_cents) AS employee_pay_cents,
-          SUM(pr.total_price_cents) AS total_price_cents,
-          SUM(pr.cars_count) AS cars_washed,
-          SUM(pr.jobs) AS jobs
+          pr.start_time,
+          pr.title,
+          pr.cars_count,
+          pr.employee_pay_cents,
+          pr.username,
+          pr.full_name
        FROM payroll_rows pr
-       JOIN users u ON u.id = pr.employee_user_id
-       LEFT JOIN employee_profiles ep ON ep.user_id = u.id
-       GROUP BY pr.employee_user_id
-       ORDER BY employee_pay_cents DESC`
+       ORDER BY pr.employee_user_id ASC, datetime(pr.start_time) ASC`
     ).bind(
       from, to, employeeUserId, employeeUserId,
       from, to, employeeUserId, employeeUserId
     ).all();
-
-    totals = await env.DB.prepare(
-      `WITH total_rows AS (
-        SELECT
-          ba.employee_user_id AS employee_user_id,
-          ba.total_price_cents AS total_price_cents,
-          ba.employee_pay_cents AS employee_pay_cents,
-          ba.manager_each_cents AS manager_each_cents,
-          ba.cars_count AS cars_count
-        FROM booking_assignments ba
-        JOIN bookings b ON b.id = ba.booking_id
-        WHERE datetime(b.start_time) >= datetime(?) AND datetime(b.start_time) < datetime(?)
-          AND (? IS NULL OR ba.employee_user_id = ?)
-
-        UNION ALL
-
-        SELECT
-          mpe.employee_user_id AS employee_user_id,
-          0 AS total_price_cents,
-          mpe.pay_cents AS employee_pay_cents,
-          0 AS manager_each_cents,
-          mpe.cars_count AS cars_count
-        FROM manual_pay_entries mpe
-        WHERE datetime(mpe.job_time) >= datetime(?) AND datetime(mpe.job_time) < datetime(?)
-          AND (? IS NULL OR mpe.employee_user_id = ?)
-      )
-      SELECT
-         SUM(total_price_cents) AS total_cents,
-         SUM(employee_pay_cents) AS employee_cents,
-         SUM(manager_each_cents) AS manager_each_sum,
-         SUM(cars_count) AS cars_washed
-      FROM total_rows`
-    ).bind(
-      from, to, employeeUserId, employeeUserId,
-      from, to, employeeUserId, employeeUserId
-    ).first();
   } catch (err) {
     if (!isManualPayTableMissingError(err)) throw err;
-    payRule = "20% rounded up to nearest $5 per booking";
     rows = await env.DB.prepare(
       `SELECT
           ba.employee_user_id,
-          u.username,
-          u.email,
-          u.phone,
-          ep.full_name,
-          ep.bank_bsb_enc,
-          ep.bank_account_enc,
-          SUM(ba.employee_pay_cents) AS employee_pay_cents,
-          SUM(ba.total_price_cents) AS total_price_cents,
-          SUM(ba.cars_count) AS cars_washed,
-          COUNT(*) AS jobs
+          b.start_time AS start_time,
+          b.title AS title,
+          ba.cars_count AS cars_count,
+          ba.employee_pay_cents AS employee_pay_cents,
+          u.username AS username,
+          ep.full_name AS full_name
        FROM booking_assignments ba
        JOIN bookings b ON b.id = ba.booking_id
        JOIN users u ON u.id = ba.employee_user_id
        LEFT JOIN employee_profiles ep ON ep.user_id = u.id
        WHERE datetime(b.start_time) >= datetime(?) AND datetime(b.start_time) < datetime(?)
          AND (? IS NULL OR ba.employee_user_id = ?)
-       GROUP BY ba.employee_user_id
-       ORDER BY employee_pay_cents DESC`
+       ORDER BY ba.employee_user_id ASC, datetime(b.start_time) ASC`
     ).bind(from, to, employeeUserId, employeeUserId).all();
-
-    totals = await env.DB.prepare(
-      `SELECT
-         SUM(ba.total_price_cents) AS total_cents,
-         SUM(ba.employee_pay_cents) AS employee_cents,
-         SUM(ba.manager_each_cents) AS manager_each_sum,
-         SUM(ba.cars_count) AS cars_washed
-       FROM booking_assignments ba
-       JOIN bookings b ON b.id = ba.booking_id
-       WHERE datetime(b.start_time) >= datetime(?) AND datetime(b.start_time) < datetime(?)
-         AND (? IS NULL OR ba.employee_user_id = ?)`
-    ).bind(from, to, employeeUserId, employeeUserId).first();
   }
 
-  const lines = [];
-  lines.push("CJ Detailing - Payroll Report");
-  lines.push(`Date Range: ${toDMY(from)} to ${toDMY(to)}`);
-  lines.push(`Generated: ${new Date().toLocaleString("en-AU")}`);
-  lines.push("");
-  lines.push(`Total Revenue:   ${formatAUD(totals?.total_cents || 0)}`);
-  lines.push(`Employee Wages:  ${formatAUD(totals?.employee_cents || 0)}`);
-  lines.push(`Per Manager:     ${formatAUD(totals?.manager_each_sum || 0)}`);
-  lines.push(`Cars Washed:     ${Number(totals?.cars_washed || 0)}`);
-  lines.push(`Pay Rule:        ${payRule}`);
-  lines.push("");
-  lines.push("Employee Details");
-  lines.push("--------------------------------------------------------------------------------");
-  lines.push("Name                 User       Cars  Jobs  Earned       Rate   Email");
-  lines.push("--------------------------------------------------------------------------------");
-
+  const grouped = new Map();
   for (const r of (rows.results || [])) {
-    const bsb = r.bank_bsb_enc ? await decryptString(env, r.bank_bsb_enc) : "-";
-    const acc = r.bank_account_enc ? await decryptString(env, r.bank_account_enc) : "-";
-    const total = r.total_price_cents || 0;
-    const effectiveRate = total > 0 ? Math.round(((r.employee_pay_cents || 0) / total) * 1000) / 10 : 0;
-    const line = [
-      clip(r.full_name || "-", 20).padEnd(20, " "),
-      clip(r.username || "-", 10).padEnd(10, " "),
-      String(r.cars_washed || 0).padStart(4, " "),
-      String(r.jobs || 0).padStart(4, " "),
-      clip(formatAUD(r.employee_pay_cents || 0), 12).padEnd(12, " "),
-      clip(`${effectiveRate}%`, 6).padEnd(6, " "),
-      clip(r.email || "-", 30),
-    ].join(" ");
-    lines.push(line);
-    if (bsb !== "-" || acc !== "-") lines.push(`  bank: ${clip(bsb, 12)} / ${clip(acc, 16)}`);
-    if (r.phone) lines.push(`  phone: ${clip(r.phone, 40)}`);
+    const id = Number(r.employee_user_id);
+    if (!grouped.has(id)) {
+      grouped.set(id, {
+        employee: {
+          username: r.username || "",
+          full_name: r.full_name || "",
+        },
+        entries: [],
+      });
+    }
+    grouped.get(id).entries.push({
+      start_time: r.start_time,
+      title: r.title,
+      cars_count: r.cars_count || 0,
+      employee_pay_cents: r.employee_pay_cents || 0,
+    });
   }
 
-  if (!(rows.results || []).length) {
-    lines.push("No payroll rows for this date range.");
+  const slips = [];
+  if (!grouped.size) {
+    slips.push(renderSlipSection({
+      employeeName: employeeUserId ? `Employee #${employeeUserId}` : "No employee data",
+      rows: [],
+      from,
+      to,
+    }));
+  } else {
+    for (const { employee, entries } of grouped.values()) {
+      slips.push(renderSlipSection({
+        employeeName: employee.full_name || employee.username || "Employee",
+        rows: entries,
+        from,
+        to,
+      }));
+    }
   }
 
-  const pdfBytes = buildPdf(paginateLines(lines));
-  const filename = `payroll_${toDMY(from).replaceAll("/", "-")}_to_${toDMY(to).replaceAll("/", "-")}.pdf`;
+  const html = renderPayslipHtml(slips.join("\n"));
+  const filename = `payslip_${toDMY(from).replaceAll("/", "-")}_to_${toDMY(to).replaceAll("/", "-")}.html`;
 
-  return new Response(pdfBytes, {
+  return new Response(html, {
     status: 200,
     headers: {
-      "content-type": "application/pdf",
-      "content-disposition": `attachment; filename="${filename}"`,
+      "content-type": "text/html; charset=utf-8",
+      "content-disposition": `inline; filename="${filename}"`,
       "cache-control": "no-store",
     },
   });
