@@ -6,6 +6,7 @@ export async function onRequestGet(context){
   const auth = await requireRole(env, request, "EMPLOYEE");
   if (!auth.ok) return auth.res;
 
+  // NOTE: totals should include completed jobs too (so employee sees real pay history)
   const q = async (whereSql) =>
     env.DB.prepare(
       `SELECT COALESCE(SUM(ba.employee_pay_cents),0) AS pay_cents,
@@ -13,14 +14,21 @@ export async function onRequestGet(context){
        FROM booking_assignments ba
        JOIN bookings b ON b.id = ba.booking_id
        WHERE ba.employee_user_id = ?
-         AND ba.completed_at IS NULL
          AND ${whereSql}`
     ).bind(auth.user.id).first();
 
-  // Week number + year (Mon-based in SQLite with %W)
-  const week = await q(`strftime('%Y-%W', b.start_time) = strftime('%Y-%W','now')`);
-  const month = await q(`strftime('%Y-%m', b.start_time) = strftime('%Y-%m','now')`);
-  const year = await q(`strftime('%Y', b.start_time) = strftime('%Y','now')`);
+  const week = await q(`
+    datetime(b.start_time,'localtime') >= datetime('now','localtime','weekday 1','-7 days')
+    AND datetime(b.start_time,'localtime') <  datetime('now','localtime','weekday 1')
+  `);
+
+  const month = await q(`
+    strftime('%Y-%m', datetime(b.start_time,'localtime')) = strftime('%Y-%m','now','localtime')
+  `);
+
+  const year = await q(`
+    strftime('%Y', datetime(b.start_time,'localtime')) = strftime('%Y','now','localtime')
+  `);
 
   return new Response(JSON.stringify({
     ok:true,

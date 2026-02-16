@@ -16,7 +16,7 @@
         <img src="/favicon.png" alt="CJ">
         <div>
           <b>Manager Portal</b>
-          <div id="meLine">Loading…</div>
+          <div class="sub" id="sideLine">Loading…</div>
         </div>
       </div>
 
@@ -28,25 +28,26 @@
       </div>
 
       <div style="margin-top:14px;">
-        <button id="logoutBtn" style="width:100%;">Logout</button>
+        <button id="logoutBtn" class="secondary" style="width:100%;">Logout</button>
       </div>
     </aside>
 
     <main class="portal-main">
       <div class="portal-top">
         <div>
-          <h2 style="margin:0;">CJ Dashboard</h2>
-          <div class="muted">Week / Month / Year totals + assignments + payroll</div>
+          <h2 style="margin:0;">CJ Manager Dashboard</h2>
+          <div class="muted">Weekly / Monthly / Yearly totals, assignments, payroll.</div>
         </div>
       </div>
 
       <!-- DASH -->
       <section id="tab-dash" class="portal-card">
         <div class="portal-grid" id="totalsGrid"></div>
+
         <div class="portal-card" style="margin-top:12px;">
-          <div class="k">Revenue graph</div>
-          <canvas id="revChart" width="900" height="220" style="width:100%;height:220px;margin-top:10px;"></canvas>
-          <div class="small">Graph shows total revenue (assigned bookings) for Week/Month/Year.</div>
+          <div class="k">Revenue</div>
+          <canvas id="revChart" style="width:100%;height:220px;margin-top:10px;"></canvas>
+          <div class="small">Assigned bookings totals (Week / Month / Year).</div>
         </div>
       </section>
 
@@ -57,7 +58,7 @@
             <b>Upcoming bookings</b>
             <div class="small" id="bStatus">Loading…</div>
           </div>
-          <button id="refreshBookings">Refresh</button>
+          <button id="refreshBookings" class="secondary">Refresh</button>
         </div>
 
         <div style="overflow:auto;margin-top:10px;">
@@ -112,7 +113,7 @@
           <input id="p_from" placeholder="from YYYY-MM-DD">
           <input id="p_to" placeholder="to YYYY-MM-DD (exclusive)">
           <button id="p_run">Generate</button>
-          <button id="p_csv">Download CSV</button>
+          <button id="p_csv" class="secondary">Download CSV</button>
         </div>
         <pre id="p_out" style="white-space:pre-wrap;margin-top:10px;"></pre>
       </section>
@@ -169,46 +170,61 @@
     location.href="/portal/";
   });
 
-  async function ensureManager(){
-    const me = await getJSON("/api/portal/me");
-    if(me?.user?.role!=="MANAGER") location.href="/portal/";
-    $("meLine").textContent = `${me.user.username} • ${me.user.email}`;
+  // DPI-aware canvas sizing (fixes stretched/blurred charts)
+  function fitCanvas(canvas, cssHeight){
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+    canvas.height = Math.max(1, Math.floor(cssHeight * dpr));
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr,0,0,dpr,0,0); // draw in CSS pixels
+    return ctx;
   }
 
   function drawBarChart(canvas, labels, values){
-    const ctx = canvas.getContext("2d");
-    const W = canvas.width, H = canvas.height;
+    const ctx = fitCanvas(canvas, 220);
+    const W = canvas.getBoundingClientRect().width;
+    const H = 220;
+
     ctx.clearRect(0,0,W,H);
 
-    // background
-    ctx.fillStyle = "rgba(255,255,255,0.03)";
+    // subtle background
+    ctx.fillStyle = "rgba(255,255,255,0.04)";
     ctx.fillRect(0,0,W,H);
 
-    const pad = 24;
+    const pad = 18;
     const max = Math.max(...values, 1);
-    const barW = (W - pad*2) / values.length * 0.6;
-    const gap = (W - pad*2) / values.length * 0.4;
+    const n = values.length;
+    const slot = (W - pad*2) / n;
+    const barW = Math.min(90, slot * 0.55);
 
-    ctx.strokeStyle = "rgba(255,255,255,0.12)";
+    // baseline
+    ctx.strokeStyle = "rgba(255,255,255,0.14)";
     ctx.beginPath();
     ctx.moveTo(pad, H-pad);
     ctx.lineTo(W-pad, H-pad);
     ctx.stroke();
 
-    ctx.fillStyle = "rgba(255,255,255,0.22)";
     values.forEach((v,i)=>{
-      const x = pad + i*(barW+gap) + gap/2;
       const h = (H - pad*2) * (v/max);
+      const x = pad + i*slot + (slot - barW)/2;
       const y = (H - pad) - h;
-      ctx.fillRect(x,y,barW,h);
-    });
 
-    ctx.fillStyle = "rgba(255,255,255,0.75)";
-    ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto";
-    labels.forEach((lab,i)=>{
-      const x = pad + i*(barW+gap) + gap/2;
-      ctx.fillText(lab, x, H-6);
+      // bar
+      ctx.fillStyle = "rgba(212,175,55,0.35)";
+      ctx.fillRect(x,y,barW,h);
+
+      // label
+      ctx.fillStyle = "rgba(255,255,255,0.75)";
+      ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto";
+      ctx.fillText(labels[i], x, H-6);
     });
+  }
+
+  async function ensureManager(){
+    const me = await getJSON("/api/portal/me");
+    if(me?.user?.role!=="MANAGER") location.href="/portal/";
+    $("sideLine").textContent = `${me.user.username}`;
   }
 
   async function loadSummary(){
@@ -218,9 +234,9 @@
     grid.innerHTML = "";
 
     const blocks = [
-      ["This week", s.week],
-      ["This month", s.month],
-      ["This year", s.year],
+      ["This week total", s.week],
+      ["This month total", s.month],
+      ["This year total", s.year],
     ];
 
     for(const [label,v] of blocks){
@@ -228,7 +244,7 @@
       div.className = "portal-card";
       div.style.margin = "0";
       div.innerHTML = `
-        <div class="k">${label} total</div>
+        <div class="k">${label}</div>
         <div class="v">${v.total_fmt}</div>
         <div class="small">Employees owed: <b>${v.employee_fmt}</b> • Each manager: <b>${v.manager_each_fmt}</b></div>
       `;
@@ -249,8 +265,7 @@
     for(const b of data.bookings){
       const tr = document.createElement("tr");
 
-      // FIXED: do NOT append "Z"
-      const when = new Date(b.start_time);
+      const when = new Date(b.start_time); // IMPORTANT: no "Z"
       const whenText = isNaN(when.getTime()) ? (b.start_time || "") : formatDMY(when);
 
       tr.innerHTML = `
@@ -263,7 +278,7 @@
       `;
 
       const sel = document.createElement("select");
-      sel.innerHTML = `<option value="">Select…</option>` + employees.map(e=>`<option value="${e.id}">${e.username} — ${e.full_name||e.email}</option>`).join("");
+      sel.innerHTML = `<option value="">Select…</option>` + employees.map(e=>`<option value="${e.id}">${e.username} — ${e.full_name||""}</option>`).join("");
       tr.children[4].appendChild(sel);
 
       const assignBtn = document.createElement("button");
@@ -278,9 +293,10 @@
 
       const doneBtn = document.createElement("button");
       doneBtn.textContent = "Mark done";
+      doneBtn.className = "secondary";
       doneBtn.addEventListener("click", async ()=>{
         await postJSON("/api/portal/manager/complete-booking", { booking_id: b.id });
-        alert("Marked done ✅ (employee will no longer see this job)");
+        alert("Marked done ✅ (employee job will disappear)");
       });
 
       const wrap = document.createElement("div");
@@ -317,7 +333,7 @@
           <div class="k">BSB</div><input placeholder="${e.bank.bsbMasked}" style="width:120px" data-k="bsb">
           <div class="k" style="margin-top:6px;">Account</div><input placeholder="${e.bank.accountMasked}" style="width:160px" data-k="account">
         </td>
-        <td><button>Save</button></td>
+        <td><button class="secondary">Save</button></td>
       `;
 
       tr.querySelector("button").addEventListener("click", async ()=>{
@@ -365,6 +381,11 @@
     const to = $("p_to").value.trim();
     if(!from || !to) return alert("Enter from/to first");
     window.location.href = `/api/portal/manager/payroll-csv?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+  });
+
+  window.addEventListener("resize", ()=> {
+    // redraw chart on resize (prevents stretch)
+    loadSummary().catch(()=>{});
   });
 
   (async ()=>{

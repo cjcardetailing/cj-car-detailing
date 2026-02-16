@@ -6,6 +6,7 @@ export async function onRequestGet(context) {
   const auth = await requireRole(env, request, "MANAGER");
   if (!auth.ok) return auth.res;
 
+  // Use AU localtime for both booking time and "now"
   const q = async (whereSql) =>
     env.DB.prepare(
       `SELECT
@@ -18,9 +19,19 @@ export async function onRequestGet(context) {
        WHERE ${whereSql}`
     ).first();
 
-  const week = await q(`strftime('%Y-%W', b.start_time) = strftime('%Y-%W','now')`);
-  const month = await q(`strftime('%Y-%m', b.start_time) = strftime('%Y-%m','now')`);
-  const year = await q(`strftime('%Y', b.start_time) = strftime('%Y','now')`);
+  // Week: Monday 00:00 local -> next Monday 00:00 local
+  const week = await q(`
+    datetime(b.start_time,'localtime') >= datetime('now','localtime','weekday 1','-7 days')
+    AND datetime(b.start_time,'localtime') <  datetime('now','localtime','weekday 1')
+  `);
+
+  const month = await q(`
+    strftime('%Y-%m', datetime(b.start_time,'localtime')) = strftime('%Y-%m','now','localtime')
+  `);
+
+  const year = await q(`
+    strftime('%Y', datetime(b.start_time,'localtime')) = strftime('%Y','now','localtime')
+  `);
 
   return new Response(JSON.stringify({
     ok: true,

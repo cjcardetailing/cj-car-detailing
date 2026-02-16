@@ -16,7 +16,7 @@
         <img src="/favicon.png" alt="CJ">
         <div>
           <b>Employee Portal</b>
-          <div id="meLine">Loading…</div>
+          <div class="sub" id="sideLine">Loading…</div>
         </div>
       </div>
 
@@ -28,14 +28,14 @@
       </div>
 
       <div style="margin-top:14px;">
-        <button id="logoutBtn" style="width:100%;">Logout</button>
+        <button id="logoutBtn" class="secondary" style="width:100%;">Logout</button>
       </div>
     </aside>
 
     <main class="portal-main">
       <div class="portal-top">
         <div>
-          <h2 style="margin:0;">Welcome</h2>
+          <h2 style="margin:0;">CJ Employee</h2>
           <div class="muted">Your earnings, jobs, and availability.</div>
         </div>
       </div>
@@ -43,10 +43,11 @@
       <!-- DASH -->
       <section id="tab-dash" class="portal-card">
         <div class="portal-grid" id="earnGrid"></div>
+
         <div class="portal-card" style="margin-top:12px;">
-          <div class="k">Earnings graph</div>
-          <canvas id="earnChart" width="900" height="220" style="width:100%;height:220px;margin-top:10px;"></canvas>
-          <div class="small">Graph shows your earnings (Week/Month/Year).</div>
+          <div class="k">Earnings</div>
+          <canvas id="earnChart" style="width:100%;height:220px;margin-top:10px;"></canvas>
+          <div class="small">Week / Month / Year.</div>
         </div>
       </section>
 
@@ -71,7 +72,7 @@
       <!-- JOBS -->
       <section id="tab-jobs" class="portal-card hidden">
         <b>My jobs</b>
-        <div class="small">Jobs disappear once your manager marks them done.</div>
+        <div class="small">Jobs disappear when manager marks them done.</div>
         <div style="overflow:auto;margin-top:10px;">
           <table>
             <thead><tr>
@@ -145,44 +146,64 @@
     location.href="/portal/";
   });
 
-  function drawBarChart(canvas, labels, values){
+  function fitCanvas(canvas, cssHeight){
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+    canvas.height = Math.max(1, Math.floor(cssHeight * dpr));
     const ctx = canvas.getContext("2d");
-    const W = canvas.width, H = canvas.height;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    return ctx;
+  }
+
+  function drawBarChart(canvas, labels, values){
+    const ctx = fitCanvas(canvas, 220);
+    const W = canvas.getBoundingClientRect().width;
+    const H = 220;
+
     ctx.clearRect(0,0,W,H);
-    ctx.fillStyle = "rgba(255,255,255,0.03)";
+    ctx.fillStyle = "rgba(255,255,255,0.04)";
     ctx.fillRect(0,0,W,H);
 
-    const pad=24;
-    const max=Math.max(...values,1);
-    const barW=(W-pad*2)/values.length*0.6;
-    const gap=(W-pad*2)/values.length*0.4;
+    const pad = 18;
+    const max = Math.max(...values, 1);
+    const n = values.length;
+    const slot = (W - pad*2) / n;
+    const barW = Math.min(90, slot * 0.55);
 
-    ctx.strokeStyle="rgba(255,255,255,0.12)";
+    ctx.strokeStyle = "rgba(255,255,255,0.14)";
     ctx.beginPath();
-    ctx.moveTo(pad,H-pad);
-    ctx.lineTo(W-pad,H-pad);
+    ctx.moveTo(pad, H-pad);
+    ctx.lineTo(W-pad, H-pad);
     ctx.stroke();
 
-    ctx.fillStyle="rgba(255,255,255,0.22)";
     values.forEach((v,i)=>{
-      const x=pad+i*(barW+gap)+gap/2;
-      const h=(H-pad*2)*(v/max);
-      const y=(H-pad)-h;
-      ctx.fillRect(x,y,barW,h);
-    });
+      const h = (H - pad*2) * (v/max);
+      const x = pad + i*slot + (slot - barW)/2;
+      const y = (H - pad) - h;
 
-    ctx.fillStyle="rgba(255,255,255,0.75)";
-    ctx.font="12px system-ui, -apple-system, Segoe UI, Roboto";
-    labels.forEach((lab,i)=>{
-      const x=pad+i*(barW+gap)+gap/2;
-      ctx.fillText(lab,x,H-6);
+      ctx.fillStyle = "rgba(212,175,55,0.35)";
+      ctx.fillRect(x,y,barW,h);
+
+      ctx.fillStyle = "rgba(255,255,255,0.75)";
+      ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto";
+      ctx.fillText(labels[i], x, H-6);
     });
+  }
+
+  async function loadSidebar(){
+    const p = await getJSON("/api/portal/employee/profile");
+    const name = p.profile?.full_name || "Employee";
+    const y = p.profile?.age_years ?? "";
+    const m = p.profile?.age_months ?? "";
+    const age = (y!=="" && m!=="") ? `${y}y ${m}m` : "";
+    const username = p.profile?.username || "";
+    $("sideLine").textContent = `${name}${age ? " • "+age : ""} • Account: ${username}`;
   }
 
   async function ensureEmployee(){
     const me = await getJSON("/api/portal/me");
     if(me?.user?.role!=="EMPLOYEE") location.href="/portal/";
-    $("meLine").textContent = `${me.user.username} • ${me.user.email}`;
   }
 
   async function loadEarnings(){
@@ -229,7 +250,7 @@
     const tbody = $("jobsT");
     tbody.innerHTML="";
     for(const x of (j.jobs||[])){
-      const when = new Date(x.start_time); // FIXED
+      const when = new Date(x.start_time);
       const whenText = isNaN(when.getTime()) ? (x.start_time || "") : formatDMY(when);
       const tr=document.createElement("tr");
       tr.innerHTML = `
@@ -253,6 +274,7 @@
     await postJSON("/api/portal/employee/profile-save", body);
     alert("Saved ✅");
     await loadProfile();
+    await loadSidebar();
   });
 
   async function loadAvail(){
@@ -266,8 +288,13 @@
     $("availMsg").textContent = "Saved ✅";
   });
 
+  window.addEventListener("resize", ()=> {
+    loadEarnings().catch(()=>{});
+  });
+
   (async ()=>{
     await ensureEmployee();
+    await loadSidebar();
     await loadEarnings();
     await loadProfile();
     await loadJobs();

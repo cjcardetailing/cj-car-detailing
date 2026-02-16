@@ -1,77 +1,88 @@
 :root{
-    --glass: rgba(0,0,0,.55);
-    --glass2: rgba(255,255,255,.06);
-    --border: rgba(255,255,255,.12);
-    --border2: rgba(255,255,255,.16);
+    --bg1: #0b0c0f;
+    --bg2: #15161b;
+    --panel: rgba(255,255,255,.08);
+    --panel2: rgba(255,255,255,.06);
+    --border: rgba(255,255,255,.14);
+    --border2: rgba(255,255,255,.18);
     --text: rgba(255,255,255,.92);
-    --muted: rgba(255,255,255,.70);
-    --muted2: rgba(255,255,255,.55);
+    --muted: rgba(255,255,255,.68);
+    --muted2: rgba(255,255,255,.54);
+    --gold: #d4af37;
+    --gold2: #c89d1d;
   }
   
   body{
     margin:0;
     color: var(--text);
+    background: radial-gradient(1200px 700px at 20% 10%, rgba(212,175,55,.14), transparent 55%),
+                radial-gradient(1000px 600px at 90% 20%, rgba(255,255,255,.06), transparent 55%),
+                linear-gradient(180deg, var(--bg1), var(--bg2));
   }
   
   .portal-bg{
     min-height:100vh;
-    padding: 16px;
+    padding: 18px;
   }
   
   .portal-layout{
-    min-height: calc(100vh - 32px);
+    min-height: calc(100vh - 36px);
     display:grid;
     grid-template-columns: 280px 1fr;
     gap: 14px;
   }
   
-  .portal-side{
-    background: var(--glass);
-    border: 1px solid var(--border);
+  .portal-side,
+  .portal-main{
     border-radius: 18px;
-    padding: 14px;
+    border: 1px solid var(--border);
+    background: rgba(0,0,0,.35);
     backdrop-filter: blur(10px);
+  }
+  
+  .portal-side{
+    padding: 14px;
   }
   
   .portal-brand{
     display:flex;
     align-items:center;
-    gap:10px;
-    padding: 10px;
-    border-radius: 14px;
-    background: var(--glass2);
+    gap:12px;
+    padding: 12px;
+    border-radius: 16px;
+    background: var(--panel2);
     border: 1px solid var(--border);
     margin-bottom: 12px;
   }
   
-  .portal-brand img{ width: 28px; height: 28px; border-radius: 8px; }
+  .portal-brand img{
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+  }
   
-  .portal-brand b{ font-size: 14px; }
-  .portal-brand div{ font-size: 12px; color: var(--muted); }
+  .portal-brand b{ font-size: 14px; letter-spacing: .2px; }
+  .portal-brand .sub{ font-size: 12px; color: var(--muted); margin-top: 2px; }
   
   .portal-nav button{
     width:100%;
     text-align:left;
     margin: 8px 0;
     padding: 12px 12px;
-    border-radius: 14px;
+    border-radius: 16px;
     border: 1px solid var(--border);
-    background: var(--glass2);
+    background: rgba(255,255,255,.05);
     color: var(--text);
     cursor:pointer;
   }
   
   .portal-nav button.active{
-    background: rgba(255,255,255,.12);
-    border-color: var(--border2);
+    border-color: rgba(212,175,55,.45);
+    background: rgba(212,175,55,.10);
   }
   
   .portal-main{
-    background: var(--glass);
-    border: 1px solid var(--border);
-    border-radius: 18px;
     padding: 14px;
-    backdrop-filter: blur(10px);
   }
   
   .portal-top{
@@ -83,10 +94,10 @@
   }
   
   .portal-top h2{ margin:0; font-size: 18px; }
-  .portal-top .muted{ color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .muted{ color: var(--muted); font-size: 12px; margin-top: 4px; }
   
   .portal-card{
-    background: rgba(255,255,255,.05);
+    background: var(--panel);
     border: 1px solid var(--border);
     border-radius: 16px;
     padding: 14px;
@@ -100,23 +111,35 @@
   }
   
   .k{ font-size: 12px; color: var(--muted); }
-  .v{ font-size: 20px; font-weight: 800; margin-top: 6px; }
-  .small{ font-size: 12px; color: var(--muted2); margin-top: 6px; }
+  .v{ font-size: 24px; font-weight: 800; margin-top: 6px; letter-spacing: .2px; }
+  .small{ font-size: 12px; color: var(--muted2); margin-top: 8px; }
   
   .portal-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-  .portal-row > * { flex: 0 0 auto; }
   
-  input, select, button, textarea{
-    border-radius: 12px;
+  input, select, textarea{
+    border-radius: 14px;
     border: 1px solid var(--border);
-    background: rgba(0,0,0,.35);
+    background: rgba(0,0,0,.30);
     color: var(--text);
-    padding: 10px 10px;
+    padding: 10px 12px;
     outline: none;
   }
   
-  button{ cursor:pointer; }
-  button:hover{ background: rgba(255,255,255,.08); }
+  button{
+    border-radius: 14px;
+    border: 1px solid rgba(212,175,55,.45);
+    background: rgba(212,175,55,.14);
+    color: var(--text);
+    padding: 10px 12px;
+    cursor:pointer;
+  }
+  button:hover{ background: rgba(212,175,55,.20); }
+  
+  button.secondary{
+    border-color: var(--border2);
+    background: rgba(255,255,255,.06);
+  }
+  button.secondary:hover{ background: rgba(255,255,255,.09); }
   
   table{ width:100%; border-collapse:collapse; }
   th,td{
