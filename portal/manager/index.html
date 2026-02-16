@@ -45,6 +45,20 @@
           <h2 style="margin:0;" id="pageTitle">Welcome</h2>
           <div class="muted" id="pageSubtitle">Your earnings and assignments.</div>
         </div>
+        <div class="portal-top-actions">
+          <div class="mobile-nav-wrap">
+            <button id="mobileMenuBtn" class="secondary mobile-menu-btn" type="button" aria-expanded="false" aria-controls="mobileMenuDropdown">
+              <span class="hamburger-lines" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
+              </span>
+              <span id="mobileTabLabel">Dashboard</span>
+            </button>
+            <div id="mobileMenuDropdown" class="mobile-menu-dropdown hidden" role="menu" aria-label="Portal tabs"></div>
+          </div>
+          <button id="logoutBtnMobile" class="secondary mobile-logout-btn" type="button">Logout</button>
+        </div>
       </div>
 
       <!-- DASH -->
@@ -343,6 +357,7 @@
   const $ = (id)=>document.getElementById(id);
   const tabs = ["dash","bookings","employees","customers","payroll","payrolldue","cashbook","manualpay"];
   const PERIOD_LABELS = { week: "This week", month: "This month", year: "This year" };
+  let activeTab = "dash";
   let summaryCache = null;
 
   function aud(c){ return (c/100).toLocaleString("en-AU",{style:"currency",currency:"AUD"}); }
@@ -423,11 +438,56 @@
     return j;
   }
 
+  function closeMobileMenu(){
+    const btn = $("mobileMenuBtn");
+    const dropdown = $("mobileMenuDropdown");
+    if (!btn || !dropdown) return;
+    btn.setAttribute("aria-expanded", "false");
+    dropdown.classList.add("hidden");
+  }
+
+  function toggleMobileMenu(){
+    const btn = $("mobileMenuBtn");
+    const dropdown = $("mobileMenuDropdown");
+    if (!btn || !dropdown) return;
+    const expanded = btn.getAttribute("aria-expanded") === "true";
+    btn.setAttribute("aria-expanded", expanded ? "false" : "true");
+    dropdown.classList.toggle("hidden", expanded);
+  }
+
+  function syncMobileLabels(){
+    const activeBtn = document.querySelector(`.portal-nav button[data-tab="${activeTab}"]`);
+    if ($("mobileTabLabel")) $("mobileTabLabel").textContent = activeBtn?.textContent?.trim() || "Menu";
+  }
+
+  function setupMobileMenu(){
+    const dropdown = $("mobileMenuDropdown");
+    if (!dropdown) return;
+    dropdown.innerHTML = "";
+    for (const tabName of tabs) {
+      const src = document.querySelector(`.portal-nav button[data-tab="${tabName}"]`);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.dataset.tab = tabName;
+      btn.role = "menuitem";
+      btn.classList.toggle("active", tabName === activeTab);
+      btn.textContent = src?.textContent?.trim() || tabName;
+      btn.addEventListener("click", ()=>showTab(tabName));
+      dropdown.appendChild(btn);
+    }
+    syncMobileLabels();
+  }
+
   function showTab(name){
+    activeTab = name;
     for(const t of tabs){
-      document.querySelector(`[data-tab="${t}"]`).classList.toggle("active", t===name);
+      document.querySelectorAll(`[data-tab="${t}"]`).forEach((el)=>{
+        el.classList.toggle("active", t===name);
+      });
       document.getElementById(`tab-${t}`).classList.toggle("hidden", t!==name);
     }
+    closeMobileMenu();
+    syncMobileLabels();
     if (name === "payrolldue") {
       loadPayrollDueWidget($("pdPeriod").value || "week").catch(()=>{});
     } else if (name === "cashbook") {
@@ -442,11 +502,23 @@
   document.querySelectorAll(".portal-nav button").forEach(b=>{
     b.addEventListener("click", ()=>showTab(b.dataset.tab));
   });
+  $("mobileMenuBtn").addEventListener("click", (e)=>{
+    e.stopPropagation();
+    toggleMobileMenu();
+  });
+  document.addEventListener("click", (e)=>{
+    if (!e.target.closest(".mobile-nav-wrap")) closeMobileMenu();
+  });
+  document.addEventListener("keydown", (e)=>{
+    if (e.key === "Escape") closeMobileMenu();
+  });
 
-  $("logoutBtn").addEventListener("click", async ()=>{
+  async function doLogout(){
     await fetch("/api/portal/logout",{method:"POST",credentials:"include"});
     location.href="/portal/";
-  });
+  }
+  $("logoutBtn").addEventListener("click", doLogout);
+  $("logoutBtnMobile").addEventListener("click", doLogout);
 
   function drawCumulativeChart(canvas, tooltipEl, dataPoints, aud){
     const wrap = canvas.parentElement;
@@ -1229,6 +1301,7 @@
   });
 
   (async ()=>{
+    setupMobileMenu();
     await ensureManager();
     $("cbExpenseDate").value = todayISODate();
     await loadSummary();

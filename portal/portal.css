@@ -177,6 +177,81 @@ body {
   font-family: 'Syne', sans-serif;
 }
 
+.portal-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.portal-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-nav-wrap {
+  position: relative;
+  display: none;
+}
+
+.mobile-menu-btn {
+  min-width: 156px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.hamburger-lines {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.hamburger-lines span {
+  width: 16px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  display: block;
+}
+
+.mobile-menu-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 220px;
+  background: var(--portal-bg-card);
+  border: 1px solid var(--portal-border);
+  border-radius: 10px;
+  box-shadow: var(--portal-shadow-hover);
+  padding: 6px;
+  z-index: 30;
+}
+
+.mobile-menu-dropdown button {
+  width: 100%;
+  text-align: left;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--portal-muted);
+  border: none;
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.mobile-menu-dropdown button.active {
+  background: var(--portal-accent);
+  color: #1a1814;
+}
+
+.mobile-logout-btn {
+  display: none;
+}
+
 .muted {
   color: var(--portal-muted);
   font-size: 13px;
@@ -586,6 +661,33 @@ tbody tr:hover {
 @media (max-width: 900px) {
   .portal-layout {
     grid-template-columns: 1fr;
+  }
+
+  .portal-side {
+    display: none;
+  }
+
+  .portal-main {
+    max-width: none;
+    width: 100%;
+  }
+
+  .portal-top {
+    align-items: center;
+  }
+
+  .portal-top-actions {
+    margin-left: auto;
+  }
+
+  .mobile-nav-wrap,
+  .mobile-logout-btn {
+    display: inline-flex;
+  }
+
+  .mobile-menu-btn {
+    padding: 9px 12px;
+    min-width: 0;
   }
 
   .payroll-due-meta,
