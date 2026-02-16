@@ -27,6 +27,7 @@
         <button data-tab="dash" class="active">Dashboard</button>
         <button data-tab="profile">Profile</button>
         <button data-tab="jobs">Jobs</button>
+        <button data-tab="payroll">Payroll</button>
         <button data-tab="availability">Availability</button>
       </div>
 
@@ -127,6 +128,21 @@
         </div>
       </section>
 
+      <!-- PAYROLL -->
+      <section id="tab-payroll" class="portal-card hidden">
+        <b>Payroll</b>
+        <div class="small">This shows your own latest payroll period only.</div>
+        <div class="portal-card" style="margin-top:12px;">
+          <div class="portal-row" style="justify-content:space-between;align-items:center;">
+            <div>
+              <div class="k">Latest payroll period</div>
+              <div class="small" id="empPayrollMeta">Loading…</div>
+            </div>
+            <button id="empOpenPayslip">Open Pay Slip</button>
+          </div>
+        </div>
+      </section>
+
       <!-- AVAILABILITY -->
       <section id="tab-availability" class="portal-card hidden">
         <b>Availability (this week)</b>
@@ -143,7 +159,7 @@
 
 <script>
   const $=(id)=>document.getElementById(id);
-  const tabs=["dash","profile","jobs","availability"];
+  const tabs=["dash","profile","jobs","payroll","availability"];
   const PERIOD_LABELS = { week: "This week", month: "This month", year: "This year" };
   let earningsCache = null;
 
@@ -346,7 +362,9 @@
     const p = j.paycheck || {};
     $("paycheckAmount").textContent = p.pay_fmt || aud(0);
     $("paycheckMeta").textContent =
-      `Range: ${toDMYFromISO(p.from || "")} to ${toDMYFromISO(p.to || "")} (end exclusive) • Jobs: ${Number(p.jobs || 0)} • Cars: ${Number(p.cars_washed || 0)}`;
+      `Range: ${toDMYFromISO(p.from || "")} to ${toDMYFromISO(p.to || "")} • Jobs: ${Number(p.jobs || 0)} • Cars: ${Number(p.cars_washed || 0)}`;
+    $("empPayrollMeta").textContent =
+      `Range: ${toDMYFromISO(p.from || "")} to ${toDMYFromISO(p.to || "")} • Total: ${p.pay_fmt || aud(0)}`;
 
     const tbody = $("paycheckT");
     tbody.innerHTML = "";
@@ -448,6 +466,9 @@
     $("availMsg").textContent = "";
     await postJSON("/api/portal/employee/availability", { availability: { text: $("availText").value.trim() } });
     $("availMsg").textContent = "Saved ✅";
+  });
+  $("empOpenPayslip").addEventListener("click", ()=>{
+    window.open("/api/portal/employee/payslip", "_blank", "noopener,noreferrer");
   });
   $("earnPeriod").addEventListener("change", renderEarningsCards);
 

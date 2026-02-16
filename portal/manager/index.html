@@ -140,7 +140,7 @@
             <option value="year">This year</option>
           </select>
           <select id="p_target">
-            <option value="">All employees</option>
+            <option value="">All team members</option>
           </select>
           <button id="p_run">Generate</button>
           <button id="p_csv" class="secondary">Download CSV</button>
@@ -177,7 +177,7 @@
           <b>Add manual pay</b>
           <div class="portal-row" style="margin-top:10px;">
             <select id="mp_employee">
-              <option value="">Select employee</option>
+              <option value="">Select team member</option>
             </select>
             <input id="mp_time" type="datetime-local" />
             <input id="mp_cars" type="number" min="1" step="1" placeholder="Cars" value="1" />
@@ -678,11 +678,12 @@
     const payrollSel = $("p_target");
     const manualSel = $("mp_employee");
 
-    payrollSel.innerHTML = `<option value="">All employees</option>`;
-    manualSel.innerHTML = `<option value="">Select employee</option>`;
+    payrollSel.innerHTML = `<option value="">All team members</option>`;
+    manualSel.innerHTML = `<option value="">Select team member</option>`;
 
     for (const e of (j.employees || [])) {
-      const label = `${e.username}${e.full_name ? ` — ${e.full_name}` : ""}`;
+      const roleTag = String(e.role || "").toUpperCase() === "MANAGER" ? " (Manager)" : "";
+      const label = `${e.username}${e.full_name ? ` — ${e.full_name}` : ""}${roleTag}`;
       const opt = document.createElement("option");
       opt.value = String(e.id);
       opt.textContent = label;
@@ -834,7 +835,7 @@
   $("p_pdf").addEventListener("click", ()=>{
     try {
       const ctx = getPayrollParams();
-      window.location.href = `/api/portal/manager/payroll-pdf?${ctx.query}`;
+      window.open(`/api/portal/manager/payroll-pdf?${ctx.query}`, "_blank", "noopener,noreferrer");
     } catch (e) {
       alert(String(e.message || e));
     }
@@ -849,7 +850,7 @@
       const jobType = $("mp_job_type").value;
       const payAmount = $("mp_pay").value.trim();
 
-      if (!employeeUserId) throw new Error("Please select an employee.");
+      if (!employeeUserId) throw new Error("Please select a team member.");
       if (!jobTime) throw new Error("Please set time and date of the job.");
       if (!Number.isInteger(carsCount) || carsCount < 1) throw new Error("Cars must be 1 or more.");
       if (!payAmount) throw new Error("Please enter pay amount.");

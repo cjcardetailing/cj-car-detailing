@@ -65,10 +65,10 @@ export async function onRequestPost(context) {
   }
 
   const employee = await env.DB.prepare(
-    `SELECT id FROM users WHERE id = ? AND role = 'EMPLOYEE' AND is_active = 1`
+    `SELECT id, role FROM users WHERE id = ? AND role IN ('EMPLOYEE','MANAGER') AND is_active = 1`
   ).bind(employeeUserId).first();
   if (!employee) {
-    return new Response(JSON.stringify({ error: "Employee not found or inactive" }), {
+    return new Response(JSON.stringify({ error: "Team member not found or inactive" }), {
       status: 404,
       headers: { "content-type": "application/json" },
     });
