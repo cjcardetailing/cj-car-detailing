@@ -386,8 +386,77 @@ tbody tr:hover {
   font-size: 14px;
 }
 
+.avail-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.avail-day-box {
+  text-align: left;
+  background: var(--portal-bg-card);
+  border: 1px solid var(--portal-border);
+  border-radius: 10px;
+  padding: 12px;
+  min-height: 110px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.avail-day-box:hover {
+  border-color: var(--portal-border-hover);
+}
+
+.avail-day-box.selected {
+  border-color: var(--portal-accent);
+  box-shadow: 0 0 0 3px var(--portal-accent-muted);
+}
+
+.avail-day-name {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--portal-muted);
+  font-weight: 700;
+}
+
+.avail-day-date {
+  font-family: 'Syne', sans-serif;
+  font-size: 30px;
+  line-height: 1.1;
+  color: var(--portal-text);
+}
+
+.avail-day-meta {
+  margin-top: auto;
+  font-size: 11px;
+  color: var(--portal-muted2);
+}
+
+.avail-range-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--portal-border);
+  border-radius: 8px;
+  background: var(--portal-bg-card);
+  margin-bottom: 8px;
+}
+
+.avail-range-row button {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
 @media (max-width: 900px) {
   .portal-layout {
     grid-template-columns: 1fr;
+  }
+
+  .avail-calendar-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

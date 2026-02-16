@@ -146,8 +146,29 @@
       <!-- AVAILABILITY -->
       <section id="tab-availability" class="portal-card hidden">
         <b>Availability (this week)</b>
-        <div class="small">Example: “Mon 4–7pm, Wed after 3pm…”</div>
-        <textarea id="availText" rows="6" style="width:100%;margin-top:10px;"></textarea>
+        <div class="small">Select a day in the calendar, then add your available times for that day.</div>
+        <div class="portal-card" style="margin-top:12px;">
+          <div class="portal-row" style="justify-content:space-between;align-items:center;">
+            <div class="k">Week calendar</div>
+            <div class="small" id="availWeekLabel">Loading week…</div>
+          </div>
+          <div id="availCalendar" class="avail-calendar-grid" style="margin-top:10px;"></div>
+        </div>
+        <div class="portal-card">
+          <div class="portal-row" style="justify-content:space-between;align-items:center;">
+            <b id="availDayTitle">Select a day</b>
+            <div class="small" id="availDayCount"></div>
+          </div>
+          <div id="availRanges" style="margin-top:10px;"></div>
+          <div class="portal-row" style="margin-top:10px;">
+            <label class="k" for="availStart" style="margin:0;">Start</label>
+            <input id="availStart" type="time" value="09:00">
+            <label class="k" for="availEnd" style="margin:0;">End</label>
+            <input id="availEnd" type="time" value="17:00">
+            <button id="availAdd" class="secondary">Add Time Range</button>
+          </div>
+        </div>
+        <div class="small" id="availSummary"></div>
         <div class="portal-row" style="margin-top:10px;">
           <button id="availSave">Save Availability</button>
           <div class="small" id="availMsg"></div>
@@ -161,7 +182,12 @@
   const $=(id)=>document.getElementById(id);
   const tabs=["dash","profile","jobs","payroll","availability"];
   const PERIOD_LABELS = { week: "This week", month: "This month", year: "This year" };
+  const WEEKDAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   let earningsCache = null;
+  let availWeekStartISO = "";
+  let availWeekDates = [];
+  let selectedAvailDay = "";
+  let availByDay = {};
 
   function aud(c){ return (c/100).toLocaleString("en-AU",{style:"currency",currency:"AUD"}); }
 
@@ -178,6 +204,184 @@
     const m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (!m) return iso || "";
     return `${m[3]}/${m[2]}/${m[1]}`;
+  }
+
+  function addDaysLocal(dt, n){
+    const d = new Date(dt);
+    d.setDate(d.getDate() + n);
+    return d;
+  }
+
+  function toISODateLocal(dt){
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, "0");
+    const d = String(dt.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+
+  function getMondayISOFromToday(){
+    const d = new Date();
+    d.setHours(0,0,0,0);
+    const dow = d.getDay(); // Sun=0
+    const diff = dow === 0 ? -6 : 1 - dow;
+    d.setDate(d.getDate() + diff);
+    return toISODateLocal(d);
+  }
+
+  function parseISODateLocal(iso){
+    const m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return null;
+    const dt = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    return isNaN(dt.getTime()) ? null : dt;
+  }
+
+  function isValidTimeText(v){
+    return /^\d{2}:\d{2}$/.test(String(v || ""));
+  }
+
+  function minutesFromTimeText(v){
+    if (!isValidTimeText(v)) return NaN;
+    const [hh, mm] = v.split(":").map(Number);
+    return hh * 60 + mm;
+  }
+
+  function formatTimeForDisplay(v){
+    const mins = minutesFromTimeText(v);
+    if (!Number.isFinite(mins)) return v || "";
+    const hh = Math.floor(mins / 60);
+    const mm = mins % 60;
+    const dt = new Date();
+    dt.setHours(hh, mm, 0, 0);
+    return dt.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }).toLowerCase();
+  }
+
+  function formatDateHuman(iso){
+    const dt = parseISODateLocal(iso);
+    if (!dt) return iso || "";
+    return dt.toLocaleDateString("en-AU", { weekday: "long", day: "2-digit", month: "short" });
+  }
+
+  function normalizeRanges(ranges){
+    const clean = [];
+    for (const item of (ranges || [])) {
+      const start = String(item?.start || "");
+      const end = String(item?.end || "");
+      const startM = minutesFromTimeText(start);
+      const endM = minutesFromTimeText(end);
+      if (!Number.isFinite(startM) || !Number.isFinite(endM) || startM >= endM) continue;
+      clean.push({ start, end, startM, endM });
+    }
+    clean.sort((a, b)=>a.startM - b.startM);
+    const merged = [];
+    for (const r of clean) {
+      if (!merged.length || r.startM > merged[merged.length - 1].endM) {
+        merged.push({ startM: r.startM, endM: r.endM });
+      } else {
+        merged[merged.length - 1].endM = Math.max(merged[merged.length - 1].endM, r.endM);
+      }
+    }
+    return merged.map((r)=>{
+      const sh = String(Math.floor(r.startM / 60)).padStart(2, "0");
+      const sm = String(r.startM % 60).padStart(2, "0");
+      const eh = String(Math.floor(r.endM / 60)).padStart(2, "0");
+      const em = String(r.endM % 60).padStart(2, "0");
+      return { start: `${sh}:${sm}`, end: `${eh}:${em}` };
+    });
+  }
+
+  function setAvailWeek(weekStartISO){
+    const baseISO = weekStartISO || getMondayISOFromToday();
+    const base = parseISODateLocal(baseISO) || parseISODateLocal(getMondayISOFromToday());
+    availWeekStartISO = toISODateLocal(base);
+    availWeekDates = [];
+    for (let i = 0; i < 7; i++) {
+      availWeekDates.push(toISODateLocal(addDaysLocal(base, i)));
+    }
+    if (!selectedAvailDay || !availWeekDates.includes(selectedAvailDay)) {
+      selectedAvailDay = availWeekDates[0] || "";
+    }
+  }
+
+  function initAvailStateFromPayload(payload){
+    const map = {};
+    for (const d of availWeekDates) map[d] = [];
+    if (payload && typeof payload === "object" && payload.by_day && typeof payload.by_day === "object") {
+      for (const [dayIso, ranges] of Object.entries(payload.by_day)) {
+        if (!map[dayIso]) continue;
+        map[dayIso] = normalizeRanges(ranges);
+      }
+    }
+    availByDay = map;
+  }
+
+  function buildAvailabilitySummaryText(){
+    const parts = [];
+    for (let i = 0; i < availWeekDates.length; i++) {
+      const dayIso = availWeekDates[i];
+      const ranges = normalizeRanges(availByDay[dayIso] || []);
+      if (!ranges.length) continue;
+      const slots = ranges.map(r=>`${formatTimeForDisplay(r.start)}-${formatTimeForDisplay(r.end)}`).join(", ");
+      parts.push(`${WEEKDAY_NAMES[i]} ${slots}`);
+    }
+    return parts.length ? parts.join(" | ") : "No times selected yet.";
+  }
+
+  function renderAvailCalendar(){
+    $("availWeekLabel").textContent = `${toDMYFromISO(availWeekDates[0] || "")} to ${toDMYFromISO(availWeekDates[6] || "")}`;
+    const wrap = $("availCalendar");
+    wrap.innerHTML = "";
+    for (let i = 0; i < availWeekDates.length; i++) {
+      const dayIso = availWeekDates[i];
+      const dayDate = parseISODateLocal(dayIso);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "avail-day-box" + (dayIso === selectedAvailDay ? " selected" : "");
+      const ranges = normalizeRanges(availByDay[dayIso] || []);
+      btn.innerHTML = `
+        <div class="avail-day-name">${WEEKDAY_NAMES[i]}</div>
+        <div class="avail-day-date">${dayDate ? dayDate.getDate() : ""}</div>
+        <div class="avail-day-meta">${ranges.length ? `${ranges.length} time range${ranges.length === 1 ? "" : "s"}` : "No times set"}</div>
+      `;
+      btn.addEventListener("click", ()=>{
+        selectedAvailDay = dayIso;
+        renderAvailabilityEditor();
+      });
+      wrap.appendChild(btn);
+    }
+  }
+
+  function renderAvailabilityEditor(){
+    renderAvailCalendar();
+    if (!selectedAvailDay) return;
+    const ranges = normalizeRanges(availByDay[selectedAvailDay] || []);
+    availByDay[selectedAvailDay] = ranges;
+    $("availDayTitle").textContent = formatDateHuman(selectedAvailDay);
+    $("availDayCount").textContent = `${ranges.length} time range${ranges.length === 1 ? "" : "s"}`;
+    const list = $("availRanges");
+    list.innerHTML = "";
+    if (!ranges.length) {
+      const empty = document.createElement("div");
+      empty.className = "small";
+      empty.textContent = "No time ranges added for this day.";
+      list.appendChild(empty);
+    } else {
+      for (const r of ranges) {
+        const row = document.createElement("div");
+        row.className = "avail-range-row";
+        row.innerHTML = `
+          <div><b>${formatTimeForDisplay(r.start)} - ${formatTimeForDisplay(r.end)}</b></div>
+          <button type="button" class="secondary">Remove</button>
+        `;
+        row.querySelector("button").addEventListener("click", ()=>{
+          availByDay[selectedAvailDay] = normalizeRanges(
+            (availByDay[selectedAvailDay] || []).filter(x => !(x.start === r.start && x.end === r.end))
+          );
+          renderAvailabilityEditor();
+        });
+        list.appendChild(row);
+      }
+    }
+    $("availSummary").textContent = `Weekly summary: ${buildAvailabilitySummaryText()}`;
   }
 
   async function getJSON(url){
@@ -459,12 +663,42 @@
 
   async function loadAvail(){
     const j = await getJSON("/api/portal/employee/availability");
-    $("availText").value = j.availability?.text || "";
+    setAvailWeek(j.week_start || getMondayISOFromToday());
+    initAvailStateFromPayload(j.availability || null);
+    renderAvailabilityEditor();
   }
+
+  $("availAdd").addEventListener("click", ()=>{
+    $("availMsg").textContent = "";
+    if (!selectedAvailDay) return;
+    const start = String($("availStart").value || "").trim();
+    const end = String($("availEnd").value || "").trim();
+    const startM = minutesFromTimeText(start);
+    const endM = minutesFromTimeText(end);
+    if (!Number.isFinite(startM) || !Number.isFinite(endM) || startM >= endM) {
+      $("availMsg").textContent = "Pick a valid start and end time.";
+      return;
+    }
+    const current = availByDay[selectedAvailDay] || [];
+    current.push({ start, end });
+    availByDay[selectedAvailDay] = normalizeRanges(current);
+    renderAvailabilityEditor();
+    $("availMsg").textContent = "Time range added.";
+  });
 
   $("availSave").addEventListener("click", async ()=>{
     $("availMsg").textContent = "";
-    await postJSON("/api/portal/employee/availability", { availability: { text: $("availText").value.trim() } });
+    const payloadByDay = {};
+    for (const dayIso of availWeekDates) {
+      payloadByDay[dayIso] = normalizeRanges(availByDay[dayIso] || []);
+    }
+    await postJSON("/api/portal/employee/availability", {
+      week_start: availWeekStartISO || getMondayISOFromToday(),
+      availability: {
+        by_day: payloadByDay,
+        text: buildAvailabilitySummaryText()
+      }
+    });
     $("availMsg").textContent = "Saved ✅";
   });
   $("empOpenPayslip").addEventListener("click", ()=>{
