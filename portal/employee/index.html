@@ -45,6 +45,20 @@
 
       <!-- DASH -->
       <section id="tab-dash" class="portal-card">
+        <div class="portal-row" style="justify-content:space-between;margin-bottom:10px;">
+          <div>
+            <b>Earnings overview</b>
+            <div class="small">Switch period to focus your totals.</div>
+          </div>
+          <div class="portal-row">
+            <label class="k" for="earnPeriod" style="margin:0;">Period</label>
+            <select id="earnPeriod">
+              <option value="week">This week</option>
+              <option value="month">This month</option>
+              <option value="year">This year</option>
+            </select>
+          </div>
+        </div>
         <div class="portal-grid" id="earnGrid"></div>
 
         <div class="portal-card" style="margin-top:12px;">
@@ -109,6 +123,8 @@
 <script>
   const $=(id)=>document.getElementById(id);
   const tabs=["dash","profile","jobs","availability"];
+  const PERIOD_LABELS = { week: "This week", month: "This month", year: "This year" };
+  let earningsCache = null;
 
   function aud(c){ return (c/100).toLocaleString("en-AU",{style:"currency",currency:"AUD"}); }
 
@@ -281,21 +297,8 @@
 
   async function loadEarnings(){
     const s = await getJSON("/api/portal/employee/summary");
-    const g = $("earnGrid");
-    g.innerHTML="";
-
-    const blocks = [["This week", s.week],["This month", s.month],["This year", s.year]];
-
-    for(const [label,v] of blocks){
-      const d=document.createElement("div");
-      d.className="portal-card";
-      d.style.margin="0";
-      d.innerHTML = `
-        <div class="k">${label}</div>
-        <div class="v">${v.pay_fmt}</div>
-        <div class="small">Jobs: <b>${v.jobs}</b></div>`;
-      g.appendChild(d);
-    }
+    earningsCache = s;
+    renderEarningsCards();
 
     const hist = await getJSON("/api/portal/employee/earnings-history");
     let cum = 0;
@@ -309,6 +312,25 @@
       $("earnChart").dataset.hoverSetup = "1";
       setupChartHover($("earnChart"), $("earnTooltip"));
     }
+  }
+
+  function renderEarningsCards(){
+    if (!earningsCache) return;
+    const period = $("earnPeriod").value || "week";
+    const g = $("earnGrid");
+    g.innerHTML = "";
+    const v = earningsCache[period] || { pay_fmt: aud(0), jobs: 0 };
+    const label = PERIOD_LABELS[period] || "Selected";
+    const d=document.createElement("div");
+    d.className="portal-card";
+    d.style.margin="0";
+    d.style.borderColor = "var(--portal-accent)";
+    d.style.gridColumn = "1 / -1";
+    d.innerHTML = `
+      <div class="k">${label}</div>
+      <div class="v">${v.pay_fmt}</div>
+      <div class="small">Jobs: <b>${v.jobs}</b></div>`;
+    g.appendChild(d);
   }
 
   async function loadProfile(){
@@ -370,6 +392,7 @@
     await postJSON("/api/portal/employee/availability", { availability: { text: $("availText").value.trim() } });
     $("availMsg").textContent = "Saved ✅";
   });
+  $("earnPeriod").addEventListener("change", renderEarningsCards);
 
   window.addEventListener("resize", ()=> {
     loadEarnings().catch(()=>{});

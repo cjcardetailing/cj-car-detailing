@@ -45,6 +45,20 @@
 
       <!-- DASH -->
       <section id="tab-dash" class="portal-card">
+        <div class="portal-row" style="justify-content:space-between;margin-bottom:10px;">
+          <div>
+            <b>Earnings overview</b>
+            <div class="small">Switch period to focus key metrics.</div>
+          </div>
+          <div class="portal-row">
+            <label class="k" for="dashPeriod" style="margin:0;">Period</label>
+            <select id="dashPeriod">
+              <option value="week">This week</option>
+              <option value="month">This month</option>
+              <option value="year">This year</option>
+            </select>
+          </div>
+        </div>
         <div class="portal-grid" id="totalsGrid"></div>
 
         <div class="portal-card" style="margin-top:12px;">
@@ -114,14 +128,32 @@
       <!-- PAYROLL -->
       <section id="tab-payroll" class="portal-card hidden">
         <b>Payroll</b>
-        <div class="small">Generate totals and download CSV.</div>
+        <div class="small">Generate payroll table and export as CSV or PDF.</div>
         <div class="portal-row" style="margin-top:10px;">
-          <input id="p_from" placeholder="from YYYY-MM-DD">
-          <input id="p_to" placeholder="to YYYY-MM-DD (exclusive)">
+          <input id="p_from" placeholder="from DD/MM/YYYY">
+          <input id="p_to" placeholder="to DD/MM/YYYY">
           <button id="p_run">Generate</button>
           <button id="p_csv" class="secondary">Download CSV</button>
+          <button id="p_pdf" class="secondary">Download PDF</button>
         </div>
-        <pre id="p_out" style="white-space:pre-wrap;margin-top:10px;"></pre>
+        <div class="small" id="p_msg" style="margin-top:8px;"></div>
+
+        <div class="portal-grid" id="p_totals" style="margin-top:10px;"></div>
+
+        <div style="overflow:auto;margin-top:10px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Contact</th>
+                <th>Bank</th>
+                <th>Jobs</th>
+                <th>Owed</th>
+              </tr>
+            </thead>
+            <tbody id="p_table"></tbody>
+          </table>
+        </div>
       </section>
 
     </main>
@@ -131,6 +163,8 @@
 <script>
   const $ = (id)=>document.getElementById(id);
   const tabs = ["dash","bookings","employees","payroll"];
+  const PERIOD_LABELS = { week: "This week", month: "This month", year: "This year" };
+  let summaryCache = null;
 
   function aud(c){ return (c/100).toLocaleString("en-AU",{style:"currency",currency:"AUD"}); }
 
@@ -141,6 +175,40 @@
     const hh = String(dt.getHours()).padStart(2,"0");
     const mm = String(dt.getMinutes()).padStart(2,"0");
     return `${d}/${m}/${y} ${hh}:${mm}`;
+  }
+
+  function formatDateOnlyDMY(dt){
+    const d = String(dt.getDate()).padStart(2,"0");
+    const m = String(dt.getMonth()+1).padStart(2,"0");
+    const y = dt.getFullYear();
+    return `${d}/${m}/${y}`;
+  }
+
+  function escapeHtml(v){
+    return String(v ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
+
+  function toISODateFromDMY(input){
+    const m = String(input || "").trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!m) return null;
+    const day = Number(m[1]);
+    const month = Number(m[2]);
+    const year = Number(m[3]);
+    if (!Number.isFinite(day) || !Number.isFinite(month) || !Number.isFinite(year)) return null;
+    const dt = new Date(Date.UTC(year, month - 1, day));
+    if (dt.getUTCFullYear() !== year || dt.getUTCMonth() !== month - 1 || dt.getUTCDate() !== day) return null;
+    return `${String(year).padStart(4,"0")}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+  }
+
+  function toDMYFromISO(iso){
+    const m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return iso || "";
+    return `${m[3]}/${m[2]}/${m[1]}`;
   }
 
   async function getJSON(url){
@@ -296,28 +364,33 @@
 
   async function loadSummary(){
     const s = await getJSON("/api/portal/manager/summary");
+    summaryCache = s;
+    renderSummary();
+    await renderChart();
+  }
 
+  function renderSummary(){
+    if (!summaryCache) return;
+    const period = $("dashPeriod").value || "week";
     const grid = $("totalsGrid");
     grid.innerHTML = "";
+    const v = summaryCache[period] || { manager_each_fmt: aud(0), jobs: 0, total_fmt: aud(0), employee_fmt: aud(0) };
+    const label = PERIOD_LABELS[period] || "Selected";
 
-    const blocks = [
-      ["This week", s.week],
-      ["This month", s.month],
-      ["This year", s.year],
-    ];
+    const div = document.createElement("div");
+    div.className = "portal-card";
+    div.style.margin = "0";
+    div.style.borderColor = "var(--portal-accent)";
+    div.style.gridColumn = "1 / -1";
+    div.innerHTML = `
+      <div class="k">${label}</div>
+      <div class="v">${v.manager_each_fmt}</div>
+      <div class="small">Jobs: <b>${v.jobs}</b> • Gross: <b>${v.total_fmt}</b> • Employee wages: <b>${v.employee_fmt}</b></div>
+    `;
+    grid.appendChild(div);
+  }
 
-    for(const [label,v] of blocks){
-      const div = document.createElement("div");
-      div.className = "portal-card";
-      div.style.margin = "0";
-      div.innerHTML = `
-        <div class="k">${label}</div>
-        <div class="v">${v.manager_each_fmt}</div>
-        <div class="small">Jobs: <b>${v.jobs}</b></div>
-      `;
-      grid.appendChild(div);
-    }
-
+  async function renderChart(){
     const hist = await getJSON("/api/portal/manager/revenue-history");
     let cum = 0;
     const raw = (hist.entries || []).map(e => {
@@ -447,24 +520,99 @@
   });
 
   $("refreshBookings").addEventListener("click", loadBookings);
+  $("dashPeriod").addEventListener("change", renderSummary);
+
+  function getPayrollRangeOrThrow(){
+    const fromRaw = $("p_from").value.trim();
+    const toRaw = $("p_to").value.trim();
+    const from = toISODateFromDMY(fromRaw);
+    const to = toISODateFromDMY(toRaw);
+    if (!from || !to) throw new Error("Use DD/MM/YYYY format for both dates.");
+    if (from >= to) throw new Error("'To' date must be after 'From' date.");
+    return { from, to };
+  }
+
+  function renderPayroll(j){
+    const totals = j?.totals || {};
+    const rows = j?.employees || [];
+
+    $("p_msg").textContent = `Range: ${toDMYFromISO(j?.range?.from)} to ${toDMYFromISO(j?.range?.to)}`;
+
+    const totalsGrid = $("p_totals");
+    totalsGrid.innerHTML = "";
+    const cards = [
+      ["Total Revenue", totals.total_fmt || aud(0)],
+      ["Employee Wages", totals.employee_fmt || aud(0)],
+      ["Per Manager", totals.manager_each_fmt || aud(0)],
+    ];
+    for (const [k, v] of cards) {
+      const d = document.createElement("div");
+      d.className = "portal-card";
+      d.style.margin = "0";
+      d.innerHTML = `<div class="k">${k}</div><div class="v">${v}</div>`;
+      totalsGrid.appendChild(d);
+    }
+
+    const tbody = $("p_table");
+    tbody.innerHTML = "";
+    if (!rows.length) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="5">No payroll rows for this range.</td>`;
+      tbody.appendChild(tr);
+      return;
+    }
+
+    for (const r of rows) {
+      const tr = document.createElement("tr");
+      const bankText = r.bank?.hasBank
+        ? `${escapeHtml(r.bank.bsb || "")} / ${escapeHtml(r.bank.account || "")}`
+        : "Not set";
+      tr.innerHTML = `
+        <td><b>${escapeHtml(r.full_name || r.username || "")}</b><div class="small">${escapeHtml(r.username || "")}</div></td>
+        <td>${escapeHtml(r.email || "")}<div class="small">${escapeHtml(r.phone || "")}</div></td>
+        <td>${bankText}</td>
+        <td>${Number(r.jobs || 0)}</td>
+        <td><b>${aud(Number(r.employee_pay_cents || 0))}</b></td>
+      `;
+      tbody.appendChild(tr);
+    }
+  }
 
   $("p_run").addEventListener("click", async ()=>{
-    const from = $("p_from").value.trim();
-    const to = $("p_to").value.trim();
-    const j = await getJSON(`/api/portal/manager/payroll?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
-    $("p_out").textContent = JSON.stringify(j, null, 2);
+    try {
+      const { from, to } = getPayrollRangeOrThrow();
+      const j = await getJSON(`/api/portal/manager/payroll?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+      renderPayroll(j);
+    } catch (e) {
+      alert(String(e.message || e));
+    }
   });
   $("p_csv").addEventListener("click", ()=>{
-    const from = $("p_from").value.trim();
-    const to = $("p_to").value.trim();
-    if(!from || !to) return alert("Enter from/to first");
-    window.location.href = `/api/portal/manager/payroll-csv?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+    try {
+      const { from, to } = getPayrollRangeOrThrow();
+      window.location.href = `/api/portal/manager/payroll-csv?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+    } catch (e) {
+      alert(String(e.message || e));
+    }
+  });
+  $("p_pdf").addEventListener("click", ()=>{
+    try {
+      const { from, to } = getPayrollRangeOrThrow();
+      window.location.href = `/api/portal/manager/payroll-pdf?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+    } catch (e) {
+      alert(String(e.message || e));
+    }
   });
 
   window.addEventListener("resize", ()=> loadSummary().catch(()=>{}));
 
   (async ()=>{
     await ensureManager();
+    const now = new Date();
+    const weekAgo = new Date(now);
+    weekAgo.setDate(now.getDate() - 7);
+    $("p_from").value = formatDateOnlyDMY(weekAgo);
+    $("p_to").value = formatDateOnlyDMY(now);
     await loadSummary();
     await loadBookings();
     await loadEmployees();
