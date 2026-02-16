@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CJ Portal – Login</title>
+  <link rel="icon" href="/favicon.png" />
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    /* Minimal portal-specific styles (keeps your main site style intact) */
+    .portal-wrap { min-height: 100vh; display:flex; align-items:center; justify-content:center; padding: 24px; }
+    .portal-card { width: 100%; max-width: 440px; border-radius: 18px; padding: 22px; background: rgba(0,0,0,0.55); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.12); }
+    .portal-title { margin: 0 0 6px; font-size: 22px; }
+    .portal-sub { margin: 0 0 18px; opacity: .85; font-size: 13px; }
+    .row { display:flex; gap:10px; }
+    .row > * { flex:1; }
+    label { display:block; font-size: 12px; opacity: .9; margin: 10px 0 6px; }
+    input { width:100%; padding: 12px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.35); color: #fff; outline: none; }
+    input:focus { border-color: rgba(255,255,255,0.35); }
+    .actions { display:flex; align-items:center; justify-content:space-between; gap: 10px; margin-top: 14px; }
+    .btn { padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.10); color:#fff; cursor:pointer; }
+    .btn:hover { background: rgba(255,255,255,0.14); }
+    .btn-primary { background: rgba(255,255,255,0.18); }
+    .btn-primary:hover { background: rgba(255,255,255,0.22); }
+    .link { background:none; border:none; color: rgba(255,255,255,0.85); cursor:pointer; text-decoration: underline; padding:0; font-size: 12px; }
+    .muted { opacity:.8; font-size: 12px; }
+    .error { margin-top: 10px; color: #ffd2d2; font-size: 12px; display:none; }
+    .success { margin-top: 10px; color: #d2ffd9; font-size: 12px; display:none; }
+    .checkbox { display:flex; align-items:center; gap:8px; margin-top: 10px; }
+    .checkbox input { width: 16px; height: 16px; padding:0; }
+    .divider { height: 1px; background: rgba(255,255,255,0.12); margin: 16px 0; }
+    .otp-box { display:none; }
+  </style>
+</head>
+<body>
+  <div class="portal-wrap">
+    <div class="portal-card">
+      <h1 class="portal-title">CJ Employee Portal</h1>
+      <p class="portal-sub">Log in with your CJ username (e.g. <b>cj000001</b> or <b>cj100001</b>).</p>
+
+      <!-- LOGIN -->
+      <div id="loginBox">
+        <label for="username">Username</label>
+        <input id="username" autocomplete="username" placeholder="cj000001" />
+
+        <label for="password">Password</label>
+        <input id="password" type="password" autocomplete="current-password" placeholder="••••••••••••" />
+
+        <div class="checkbox">
+          <input id="rememberMe" type="checkbox" checked />
+          <label for="rememberMe" style="margin:0;">Remember me (30 days)</label>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-primary" id="loginBtn">Log in</button>
+          <button class="link" id="forgotBtn" type="button">Forgot password?</button>
+        </div>
+
+        <div class="error" id="loginErr"></div>
+        <div class="success" id="loginOk"></div>
+      </div>
+
+      <!-- OTP -->
+      <div class="otp-box" id="otpBox">
+        <div class="divider"></div>
+        <h2 style="margin:0 0 6px; font-size: 16px;">Manager verification</h2>
+        <p class="muted" style="margin:0 0 10px;">We emailed a 6-digit code to your manager email.</p>
+
+        <label for="otp">6-digit code</label>
+        <input id="otp" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" />
+
+        <div class="checkbox">
+          <input id="trustDevice" type="checkbox" checked />
+          <label for="trustDevice" style="margin:0;">Allow this device for 30 days</label>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-primary" id="verifyBtn">Verify & continue</button>
+          <button class="btn" id="backBtn" type="button">Back</button>
+        </div>
+
+        <div class="error" id="otpErr"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+
+  function show(el, yes) { el.style.display = yes ? "block" : "none"; }
+  function setText(el, txt) { el.textContent = txt; }
+
+  async function api(path, body) {
+    const res = await fetch(path, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body || {}),
+      credentials: "include",
+    });
+    const text = await res.text();
+    let data = null;
+    try { data = JSON.parse(text); } catch {}
+    return { ok: res.ok, status: res.status, data, text };
+  }
+
+  async function redirectAfterLogin() {
+    // use /api/portal/me to decide where to go
+    const res = await fetch("/api/portal/me", { credentials: "include" });
+    if (!res.ok) return;
+    const j = await res.json();
+    const role = j?.user?.role;
+    if (role === "MANAGER") window.location.href = "/portal/manager/";
+    else if (role === "EMPLOYEE") window.location.href = "/portal/employee/";
+  }
+
+  // If already logged in, redirect
+  redirectAfterLogin();
+
+  $("loginBtn").addEventListener("click", async () => {
+    show($("loginErr"), false);
+    show($("loginOk"), false);
+
+    const username = $("username").value.trim();
+    const password = $("password").value;
+    const rememberMe = $("rememberMe").checked;
+
+    if (!username || !password) {
+      setText($("loginErr"), "Please enter your username and password.");
+      show($("loginErr"), true);
+      return;
+    }
+
+    const r = await api("/api/portal/login", { username, password, rememberMe });
+
+    if (!r.ok) {
+      setText($("loginErr"), r.data?.error || "Login failed.");
+      show($("loginErr"), true);
+      return;
+    }
+
+    if (r.data?.needsOtp) {
+      // show OTP box (manager)
+      show($("otpBox"), true);
+      $("otp").focus();
+      return;
+    }
+
+    setText($("loginOk"), "Logged in. Redirecting…");
+    show($("loginOk"), true);
+    await redirectAfterLogin();
+  });
+
+  $("verifyBtn").addEventListener("click", async () => {
+    show($("otpErr"), false);
+
+    const username = $("username").value.trim();
+    const otp = $("otp").value.trim();
+    const rememberMe = $("rememberMe").checked;
+    const trustDevice = $("trustDevice").checked;
+
+    if (!otp || otp.length < 6) {
+      setText($("otpErr"), "Enter the 6-digit code.");
+      show($("otpErr"), true);
+      return;
+    }
+
+    const r = await api("/api/portal/otp/verify", { username, otp, rememberMe, trustDevice });
+
+    if (!r.ok) {
+      setText($("otpErr"), r.data?.error || "Verification failed.");
+      show($("otpErr"), true);
+      return;
+    }
+
+    await redirectAfterLogin();
+  });
+
+  $("backBtn").addEventListener("click", () => {
+    show($("otpBox"), false);
+    $("otp").value = "";
+  });
+
+  $("forgotBtn").addEventListener("click", async () => {
+    show($("loginErr"), false);
+    show($("loginOk"), false);
+
+    const username = $("username").value.trim();
+    if (!username) {
+      setText($("loginErr"), "Type your username first, then click Forgot password.");
+      show($("loginErr"), true);
+      return;
+    }
+
+    // Find email for that username is a future enhancement;
+    // for now, ask them to type their email (simple prompt).
+    const email = prompt("Enter the email linked to your account:");
+    if (!email) return;
+
+    const r = await api("/api/portal/password/forgot", { email });
+
+    if (!r.ok) {
+      setText($("loginErr"), "Could not start password reset. Try again.");
+      show($("loginErr"), true);
+      return;
+    }
+
+    setText($("loginOk"), "If that email exists, a reset link has been sent.");
+    show($("loginOk"), true);
+  });
+</script>
+</body>
+</html>

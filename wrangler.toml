@@ -1,0 +1,7 @@
+name = "cj-car-detailing"
+compatibility_date = "2026-02-16"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cj_portal"
+database_id = "5e822cc8-51e0-4f06-8424-198191ea8d35"
