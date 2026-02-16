@@ -104,13 +104,23 @@
   }
 
   async function redirectAfterLogin() {
-    // use /api/portal/me to decide where to go
     const res = await fetch("/api/portal/me", { credentials: "include" });
-    if (!res.ok) return;
-    const j = await res.json();
+    if (!res.ok) {
+      console.error("redirectAfterLogin: /api/portal/me failed", res.status);
+      return false;
+    }
+    const j = await res.json().catch(() => null);
     const role = j?.user?.role;
-    if (role === "MANAGER") window.location.href = "/portal/manager/";
-    else if (role === "EMPLOYEE") window.location.href = "/portal/employee/";
+    if (role === "MANAGER") {
+      window.location.href = "/portal/manager/";
+      return true;
+    }
+    if (role === "EMPLOYEE") {
+      window.location.href = "/portal/employee/";
+      return true;
+    }
+    console.error("redirectAfterLogin: unknown role", role);
+    return false;
   }
 
   // If already logged in, redirect
@@ -147,7 +157,12 @@
 
     setText($("loginOk"), "Logged in. Redirecting…");
     show($("loginOk"), true);
-    await redirectAfterLogin();
+    const didRedirect = await redirectAfterLogin();
+    if (!didRedirect) {
+      setText($("loginOk"), "Logged in! Click here to continue.");
+      $("loginOk").style.cursor = "pointer";
+      $("loginOk").onclick = () => redirectAfterLogin();
+    }
   });
 
   $("verifyBtn").addEventListener("click", async () => {
@@ -172,7 +187,17 @@
       return;
     }
 
-    await redirectAfterLogin();
+    show($("otpBox"), false);
+    show($("loginBox"), true);
+    setText($("loginOk"), "Logged in. Redirecting…");
+    show($("loginOk"), true);
+    show($("loginErr"), false);
+    const didRedirect = await redirectAfterLogin();
+    if (!didRedirect) {
+      setText($("loginOk"), "Logged in! Click here to continue.");
+      $("loginOk").style.cursor = "pointer";
+      $("loginOk").onclick = () => redirectAfterLogin();
+    }
   });
 
   $("backBtn").addEventListener("click", () => {

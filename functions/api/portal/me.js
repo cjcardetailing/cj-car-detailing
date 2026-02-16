@@ -8,10 +8,15 @@ export async function onRequestGet(context) {
 
   let full_name = null;
   if (user.role === "MANAGER") {
-    const profile = await env.DB.prepare(
-      "SELECT full_name FROM manager_profiles WHERE user_id = ?"
-    ).bind(user.id).first();
-    full_name = profile?.full_name || null;
+    try {
+      const profile = await env.DB.prepare(
+        "SELECT full_name FROM manager_profiles WHERE user_id = ?"
+      ).bind(user.id).first();
+      full_name = profile?.full_name || null;
+    } catch {
+      // manager_profiles table may not exist yet (migration not run)
+      full_name = null;
+    }
   }
 
   const displayName = full_name || user.username;
