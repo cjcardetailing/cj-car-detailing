@@ -28,6 +28,7 @@
         <button data-tab="bookings">Bookings</button>
         <button data-tab="employees">Employees</button>
         <button data-tab="payroll">Payroll</button>
+        <button data-tab="manualpay">Manual Pay</button>
       </div>
 
       <div style="margin-top:14px;">
@@ -167,13 +168,60 @@
         </div>
       </section>
 
+      <!-- MANUAL PAY -->
+      <section id="tab-manualpay" class="portal-card hidden">
+        <b>Manual Pay Entry</b>
+        <div class="small">Add pay for jobs that did not show up automatically.</div>
+
+        <div class="portal-card" style="margin-top:12px;">
+          <b>Add manual pay</b>
+          <div class="portal-row" style="margin-top:10px;">
+            <select id="mp_employee">
+              <option value="">Select employee</option>
+            </select>
+            <input id="mp_time" type="datetime-local" />
+            <input id="mp_cars" type="number" min="1" step="1" placeholder="Cars" value="1" />
+            <select id="mp_job_type">
+              <option value="Full Detail">Full Detail</option>
+              <option value="Just Outside">Just Outside</option>
+              <option value="Inside + Outside">Inside + Outside</option>
+              <option value="Maintenance Wash">Maintenance Wash</option>
+              <option value="Other">Other</option>
+            </select>
+            <input id="mp_pay" type="number" min="0" step="0.01" placeholder="Pay amount (AUD)" />
+            <button id="mp_submit">Add Pay</button>
+          </div>
+          <div class="small" id="mp_msg" style="margin-top:8px;"></div>
+        </div>
+
+        <div class="portal-row" style="justify-content:space-between;">
+          <b>Recent manual pay entries</b>
+          <button id="mp_refresh" class="secondary">Refresh</button>
+        </div>
+        <div style="overflow:auto;margin-top:10px;">
+          <table>
+            <thead>
+              <tr>
+                <th>When (DD/MM/YYYY)</th>
+                <th>Employee</th>
+                <th>Job Type</th>
+                <th>Cars</th>
+                <th>Pay</th>
+                <th>Added By</th>
+              </tr>
+            </thead>
+            <tbody id="mp_table"></tbody>
+          </table>
+        </div>
+      </section>
+
     </main>
   </div>
 </div>
 
 <script>
   const $ = (id)=>document.getElementById(id);
-  const tabs = ["dash","bookings","employees","payroll"];
+  const tabs = ["dash","bookings","employees","payroll","manualpay"];
   const PERIOD_LABELS = { week: "This week", month: "This month", year: "This year" };
   let summaryCache = null;
 
@@ -201,6 +249,16 @@
     const m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (!m) return iso || "";
     return `${m[3]}/${m[2]}/${m[1]}`;
+  }
+
+  function nowForDateTimeLocal(){
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    const hh = String(d.getHours()).padStart(2, "0");
+    const min = String(d.getMinutes()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
   }
 
   async function getJSON(url){
@@ -617,14 +675,50 @@
 
   async function loadPayrollTargets(){
     const j = await getJSON("/api/portal/manager/employees-basic");
-    const sel = $("p_target");
-    sel.innerHTML = `<option value="">All employees</option>`;
+    const payrollSel = $("p_target");
+    const manualSel = $("mp_employee");
+
+    payrollSel.innerHTML = `<option value="">All employees</option>`;
+    manualSel.innerHTML = `<option value="">Select employee</option>`;
+
     for (const e of (j.employees || [])) {
       const label = `${e.username}${e.full_name ? ` — ${e.full_name}` : ""}`;
       const opt = document.createElement("option");
       opt.value = String(e.id);
       opt.textContent = label;
-      sel.appendChild(opt);
+
+      const opt2 = opt.cloneNode(true);
+      payrollSel.appendChild(opt);
+      manualSel.appendChild(opt2);
+    }
+  }
+
+  async function loadManualPayHistory(){
+    const j = await getJSON("/api/portal/manager/manual-pay-history");
+    const tbody = $("mp_table");
+    tbody.innerHTML = "";
+    const rows = j.entries || [];
+    if (!rows.length) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="6">No manual pay entries yet.</td>`;
+      tbody.appendChild(tr);
+      return;
+    }
+
+    for (const r of rows) {
+      const when = new Date(r.job_time);
+      const whenText = isNaN(when.getTime()) ? (r.job_time || "") : formatDMY(when);
+      const empName = r.employee_full_name || r.employee_username || `Employee #${r.employee_user_id}`;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${escapeHtml(whenText)}</td>
+        <td><b>${escapeHtml(empName)}</b><div class="small">${escapeHtml(r.employee_username || "")}</div></td>
+        <td>${escapeHtml(r.job_type || "")}</td>
+        <td>${Number(r.cars_count || 0)}</td>
+        <td><b>${aud(Number(r.pay_cents || 0))}</b></td>
+        <td>${escapeHtml(r.created_by_username || "")}</td>
+      `;
+      tbody.appendChild(tr);
     }
   }
 
@@ -734,6 +828,41 @@
     }
   });
 
+  $("mp_submit").addEventListener("click", async ()=>{
+    $("mp_msg").textContent = "";
+    try {
+      const employeeUserId = Number($("mp_employee").value || 0);
+      const jobTime = $("mp_time").value.trim();
+      const carsCount = Number($("mp_cars").value || 0);
+      const jobType = $("mp_job_type").value;
+      const payAmount = $("mp_pay").value.trim();
+
+      if (!employeeUserId) throw new Error("Please select an employee.");
+      if (!jobTime) throw new Error("Please set time and date of the job.");
+      if (!Number.isInteger(carsCount) || carsCount < 1) throw new Error("Cars must be 1 or more.");
+      if (!payAmount) throw new Error("Please enter pay amount.");
+
+      const res = await postJSON("/api/portal/manager/manual-pay-add", {
+        employee_user_id: employeeUserId,
+        job_time: jobTime,
+        cars_count: carsCount,
+        job_type: jobType,
+        pay_amount: payAmount,
+      });
+
+      $("mp_msg").textContent = `Added ${res?.entry?.pay_fmt || "manual pay"} successfully.`;
+      $("mp_pay").value = "";
+      $("mp_cars").value = "1";
+      $("mp_time").value = nowForDateTimeLocal();
+      await loadManualPayHistory();
+      await loadSummary();
+    } catch (e) {
+      $("mp_msg").textContent = String(e.message || e);
+    }
+  });
+
+  $("mp_refresh").addEventListener("click", loadManualPayHistory);
+
   window.addEventListener("resize", ()=> loadSummary().catch(()=>{}));
 
   (async ()=>{
@@ -742,6 +871,8 @@
     await loadBookings();
     await loadEmployees();
     await loadPayrollTargets();
+    $("mp_time").value = nowForDateTimeLocal();
+    await loadManualPayHistory();
   })();
 </script>
 </body>

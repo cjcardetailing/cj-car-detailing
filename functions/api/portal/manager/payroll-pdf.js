@@ -94,39 +94,89 @@ export async function onRequestGet(context) {
   }
 
   const rows = await env.DB.prepare(
-    `SELECT
-        ba.employee_user_id,
+    `WITH payroll_rows AS (
+      SELECT
+        ba.employee_user_id AS employee_user_id,
+        ba.employee_pay_cents AS employee_pay_cents,
+        ba.total_price_cents AS total_price_cents,
+        ba.manager_each_cents AS manager_each_cents,
+        ba.cars_count AS cars_count,
+        1 AS jobs
+      FROM booking_assignments ba
+      JOIN bookings b ON b.id = ba.booking_id
+      WHERE datetime(b.start_time) >= datetime(?) AND datetime(b.start_time) < datetime(?)
+        AND (? IS NULL OR ba.employee_user_id = ?)
+
+      UNION ALL
+
+      SELECT
+        mpe.employee_user_id AS employee_user_id,
+        mpe.pay_cents AS employee_pay_cents,
+        0 AS total_price_cents,
+        0 AS manager_each_cents,
+        mpe.cars_count AS cars_count,
+        1 AS jobs
+      FROM manual_pay_entries mpe
+      WHERE datetime(mpe.job_time) >= datetime(?) AND datetime(mpe.job_time) < datetime(?)
+        AND (? IS NULL OR mpe.employee_user_id = ?)
+    )
+    SELECT
+        pr.employee_user_id,
         u.username,
         u.email,
         u.phone,
         ep.full_name,
         ep.bank_bsb_enc,
         ep.bank_account_enc,
-        SUM(ba.employee_pay_cents) AS employee_pay_cents,
-        SUM(ba.total_price_cents) AS total_price_cents,
-        SUM(ba.cars_count) AS cars_washed,
-        COUNT(*) AS jobs
-     FROM booking_assignments ba
-     JOIN bookings b ON b.id = ba.booking_id
-     JOIN users u ON u.id = ba.employee_user_id
+        SUM(pr.employee_pay_cents) AS employee_pay_cents,
+        SUM(pr.total_price_cents) AS total_price_cents,
+        SUM(pr.cars_count) AS cars_washed,
+        SUM(pr.jobs) AS jobs
+     FROM payroll_rows pr
+     JOIN users u ON u.id = pr.employee_user_id
      LEFT JOIN employee_profiles ep ON ep.user_id = u.id
-     WHERE datetime(b.start_time) >= datetime(?) AND datetime(b.start_time) < datetime(?)
-       AND (? IS NULL OR ba.employee_user_id = ?)
-     GROUP BY ba.employee_user_id
+     GROUP BY pr.employee_user_id
      ORDER BY employee_pay_cents DESC`
-  ).bind(from, to, employeeUserId, employeeUserId).all();
+  ).bind(
+    from, to, employeeUserId, employeeUserId,
+    from, to, employeeUserId, employeeUserId
+  ).all();
 
   const totals = await env.DB.prepare(
-    `SELECT
-       SUM(ba.total_price_cents) AS total_cents,
-       SUM(ba.employee_pay_cents) AS employee_cents,
-       SUM(ba.manager_each_cents) AS manager_each_sum,
-       SUM(ba.cars_count) AS cars_washed
-     FROM booking_assignments ba
-     JOIN bookings b ON b.id = ba.booking_id
-     WHERE datetime(b.start_time) >= datetime(?) AND datetime(b.start_time) < datetime(?)
-       AND (? IS NULL OR ba.employee_user_id = ?)`
-  ).bind(from, to, employeeUserId, employeeUserId).first();
+    `WITH total_rows AS (
+      SELECT
+        ba.employee_user_id AS employee_user_id,
+        ba.total_price_cents AS total_price_cents,
+        ba.employee_pay_cents AS employee_pay_cents,
+        ba.manager_each_cents AS manager_each_cents,
+        ba.cars_count AS cars_count
+      FROM booking_assignments ba
+      JOIN bookings b ON b.id = ba.booking_id
+      WHERE datetime(b.start_time) >= datetime(?) AND datetime(b.start_time) < datetime(?)
+        AND (? IS NULL OR ba.employee_user_id = ?)
+
+      UNION ALL
+
+      SELECT
+        mpe.employee_user_id AS employee_user_id,
+        0 AS total_price_cents,
+        mpe.pay_cents AS employee_pay_cents,
+        0 AS manager_each_cents,
+        mpe.cars_count AS cars_count
+      FROM manual_pay_entries mpe
+      WHERE datetime(mpe.job_time) >= datetime(?) AND datetime(mpe.job_time) < datetime(?)
+        AND (? IS NULL OR mpe.employee_user_id = ?)
+    )
+    SELECT
+       SUM(total_price_cents) AS total_cents,
+       SUM(employee_pay_cents) AS employee_cents,
+       SUM(manager_each_cents) AS manager_each_sum,
+       SUM(cars_count) AS cars_washed
+    FROM total_rows`
+  ).bind(
+    from, to, employeeUserId, employeeUserId,
+    from, to, employeeUserId, employeeUserId
+  ).first();
 
   const lines = [];
   lines.push("CJ Detailing - Payroll Report");
@@ -137,7 +187,7 @@ export async function onRequestGet(context) {
   lines.push(`Employee Wages:  ${formatAUD(totals?.employee_cents || 0)}`);
   lines.push(`Per Manager:     ${formatAUD(totals?.manager_each_sum || 0)}`);
   lines.push(`Cars Washed:     ${Number(totals?.cars_washed || 0)}`);
-  lines.push("Pay Rule:        20% rounded up to nearest $5 per booking");
+  lines.push("Pay Rule:        Auto 20% rounded up to nearest $5 per booking + manual pay entries");
   lines.push("");
   lines.push("Employee Details");
   lines.push("--------------------------------------------------------------------------------");

@@ -21,27 +21,51 @@ export async function onRequestGet(context){
   if (!from || !to || (employeeUserIdRaw && !Number.isFinite(employeeUserId))) return new Response("Missing/invalid from/to", { status:400 });
 
   const rows = await env.DB.prepare(
-    `SELECT
-        ba.employee_user_id,
+    `WITH payroll_rows AS (
+      SELECT
+        ba.employee_user_id AS employee_user_id,
+        ba.employee_pay_cents AS employee_pay_cents,
+        ba.total_price_cents AS total_price_cents,
+        ba.cars_count AS cars_count,
+        1 AS jobs
+      FROM booking_assignments ba
+      JOIN bookings b ON b.id = ba.booking_id
+      WHERE datetime(b.start_time) >= datetime(?) AND datetime(b.start_time) < datetime(?)
+        AND (? IS NULL OR ba.employee_user_id = ?)
+
+      UNION ALL
+
+      SELECT
+        mpe.employee_user_id AS employee_user_id,
+        mpe.pay_cents AS employee_pay_cents,
+        0 AS total_price_cents,
+        mpe.cars_count AS cars_count,
+        1 AS jobs
+      FROM manual_pay_entries mpe
+      WHERE datetime(mpe.job_time) >= datetime(?) AND datetime(mpe.job_time) < datetime(?)
+        AND (? IS NULL OR mpe.employee_user_id = ?)
+    )
+    SELECT
+        pr.employee_user_id,
         u.username,
         u.email,
         u.phone,
         ep.full_name,
         ep.bank_bsb_enc,
         ep.bank_account_enc,
-        SUM(ba.employee_pay_cents) AS employee_pay_cents,
-        SUM(ba.total_price_cents) AS total_price_cents,
-        SUM(ba.cars_count) AS cars_washed,
-        COUNT(*) AS jobs
-     FROM booking_assignments ba
-     JOIN bookings b ON b.id = ba.booking_id
-     JOIN users u ON u.id = ba.employee_user_id
+        SUM(pr.employee_pay_cents) AS employee_pay_cents,
+        SUM(pr.total_price_cents) AS total_price_cents,
+        SUM(pr.cars_count) AS cars_washed,
+        SUM(pr.jobs) AS jobs
+     FROM payroll_rows pr
+     JOIN users u ON u.id = pr.employee_user_id
      LEFT JOIN employee_profiles ep ON ep.user_id = u.id
-     WHERE datetime(b.start_time) >= datetime(?) AND datetime(b.start_time) < datetime(?)
-       AND (? IS NULL OR ba.employee_user_id = ?)
-     GROUP BY ba.employee_user_id
+     GROUP BY pr.employee_user_id
      ORDER BY employee_pay_cents DESC`
-  ).bind(from, to, employeeUserId, employeeUserId).all();
+  ).bind(
+    from, to, employeeUserId, employeeUserId,
+    from, to, employeeUserId, employeeUserId
+  ).all();
 
   let csv = "username,full_name,email,phone,bsb,account,money_earned,money_earned_fmt,cars_washed,jobs,effective_rate_pct,pay_rule\n";
   for (const r of (rows.results || [])) {
@@ -62,7 +86,7 @@ export async function onRequestGet(context){
       r.cars_washed || 0,
       r.jobs || 0,
       effectiveRate,
-      "20% rounded up to nearest $5 per booking",
+      "Auto 20% rounded up to nearest $5 per booking + manual pay entries",
     ].map(csvEscape).join(",") + "\n";
   }
 
