@@ -8,32 +8,57 @@ export async function onRequestGet(context) {
   const managerUserId = Number(auth.user.id) || 0;
   const url = new URL(request.url);
   const range = getPeriodRange(url.searchParams.get("period"));
+  const isWeek = range.period === "week";
 
-  const bookingRows = await env.DB.prepare(
-    `SELECT b.start_time AS date, ba.total_price_cents, ba.manager_each_cents
-     FROM booking_assignments ba
-     JOIN bookings b ON b.id = ba.booking_id
-     WHERE ba.completed_at IS NOT NULL
-       AND datetime(b.start_time, 'localtime') >= datetime(?)
-       AND datetime(b.start_time, 'localtime') < datetime(?)
-     ORDER BY datetime(b.start_time) ASC
-     LIMIT 500`
-  ).bind(range.fromDateTime, range.toDateTime).all();
+  const bookingRows = isWeek
+    ? await env.DB.prepare(
+        `SELECT b.start_time AS date, ba.total_price_cents, ba.manager_each_cents
+         FROM booking_assignments ba
+         JOIN bookings b ON b.id = ba.booking_id
+         WHERE ba.completed_at IS NOT NULL
+           AND datetime(b.start_time, 'localtime') >= datetime('now', 'localtime', 'weekday 1', '-7 days')
+           AND datetime(b.start_time, 'localtime') < datetime('now', 'localtime', 'weekday 1')
+         ORDER BY datetime(b.start_time) ASC
+         LIMIT 500`
+      ).all()
+    : await env.DB.prepare(
+        `SELECT b.start_time AS date, ba.total_price_cents, ba.manager_each_cents
+         FROM booking_assignments ba
+         JOIN bookings b ON b.id = ba.booking_id
+         WHERE ba.completed_at IS NOT NULL
+           AND datetime(b.start_time, 'localtime') >= datetime(?)
+           AND datetime(b.start_time, 'localtime') < datetime(?)
+         ORDER BY datetime(b.start_time) ASC
+         LIMIT 500`
+      ).bind(range.fromDateTime, range.toDateTime).all();
 
   let manualRows = { results: [] };
   try {
-    manualRows = await env.DB.prepare(
-      `SELECT
-         mpe.job_time AS date,
-         0 AS total_price_cents,
-         mpe.pay_cents AS manager_each_cents
-       FROM manual_pay_entries mpe
-       WHERE mpe.employee_user_id = ?
-         AND datetime(mpe.job_time, 'localtime') >= datetime(?)
-         AND datetime(mpe.job_time, 'localtime') < datetime(?)
-       ORDER BY datetime(mpe.job_time) ASC
-       LIMIT 500`
-    ).bind(managerUserId, range.fromDateTime, range.toDateTime).all();
+    manualRows = isWeek
+      ? await env.DB.prepare(
+          `SELECT
+             mpe.job_time AS date,
+             0 AS total_price_cents,
+             mpe.pay_cents AS manager_each_cents
+           FROM manual_pay_entries mpe
+           WHERE mpe.employee_user_id = ?
+             AND datetime(mpe.job_time, 'localtime') >= datetime('now', 'localtime', 'weekday 1', '-7 days')
+             AND datetime(mpe.job_time, 'localtime') < datetime('now', 'localtime', 'weekday 1')
+           ORDER BY datetime(mpe.job_time) ASC
+           LIMIT 500`
+        ).bind(managerUserId).all()
+      : await env.DB.prepare(
+          `SELECT
+             mpe.job_time AS date,
+             0 AS total_price_cents,
+             mpe.pay_cents AS manager_each_cents
+           FROM manual_pay_entries mpe
+           WHERE mpe.employee_user_id = ?
+             AND datetime(mpe.job_time, 'localtime') >= datetime(?)
+             AND datetime(mpe.job_time, 'localtime') < datetime(?)
+           ORDER BY datetime(mpe.job_time) ASC
+           LIMIT 500`
+        ).bind(managerUserId, range.fromDateTime, range.toDateTime).all();
   } catch {
     manualRows = { results: [] };
   }
