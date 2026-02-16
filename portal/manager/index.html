@@ -128,10 +128,16 @@
       <!-- PAYROLL -->
       <section id="tab-payroll" class="portal-card hidden">
         <b>Payroll</b>
-        <div class="small">Generate payroll table and export as CSV or PDF.</div>
+        <div class="small">Weekly payroll runs on Sunday (Mon-Sun). You can also view month/year.</div>
         <div class="portal-row" style="margin-top:10px;">
-          <input id="p_from" placeholder="from DD/MM/YYYY">
-          <input id="p_to" placeholder="to DD/MM/YYYY">
+          <select id="p_period">
+            <option value="week_sunday">Weekly (Sunday payroll)</option>
+            <option value="month">This month</option>
+            <option value="year">This year</option>
+          </select>
+          <select id="p_target">
+            <option value="">All employees</option>
+          </select>
           <button id="p_run">Generate</button>
           <button id="p_csv" class="secondary">Download CSV</button>
           <button id="p_pdf" class="secondary">Download PDF</button>
@@ -147,8 +153,10 @@
                 <th>Employee</th>
                 <th>Contact</th>
                 <th>Bank</th>
+                <th>Cars</th>
                 <th>Jobs</th>
-                <th>Owed</th>
+                <th>Rate</th>
+                <th>Earned</th>
               </tr>
             </thead>
             <tbody id="p_table"></tbody>
@@ -177,13 +185,6 @@
     return `${d}/${m}/${y} ${hh}:${mm}`;
   }
 
-  function formatDateOnlyDMY(dt){
-    const d = String(dt.getDate()).padStart(2,"0");
-    const m = String(dt.getMonth()+1).padStart(2,"0");
-    const y = dt.getFullYear();
-    return `${d}/${m}/${y}`;
-  }
-
   function escapeHtml(v){
     return String(v ?? "")
       .replaceAll("&", "&amp;")
@@ -191,18 +192,6 @@
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#39;");
-  }
-
-  function toISODateFromDMY(input){
-    const m = String(input || "").trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (!m) return null;
-    const day = Number(m[1]);
-    const month = Number(m[2]);
-    const year = Number(m[3]);
-    if (!Number.isFinite(day) || !Number.isFinite(month) || !Number.isFinite(year)) return null;
-    const dt = new Date(Date.UTC(year, month - 1, day));
-    if (dt.getUTCFullYear() !== year || dt.getUTCMonth() !== month - 1 || dt.getUTCDate() !== day) return null;
-    return `${String(year).padStart(4,"0")}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
   }
 
   function toDMYFromISO(iso){
@@ -501,6 +490,57 @@
     }
   }
 
+  function addDays(dt, n){
+    const d = new Date(dt);
+    d.setDate(d.getDate() + n);
+    return d;
+  }
+  function startOfDay(dt){
+    const d = new Date(dt);
+    d.setHours(0,0,0,0);
+    return d;
+  }
+  function toISODateLocal(dt){
+    const d = String(dt.getDate()).padStart(2,"0");
+    const m = String(dt.getMonth()+1).padStart(2,"0");
+    const y = dt.getFullYear();
+    return `${y}-${m}-${d}`;
+  }
+  function rangeForPeriod(period){
+    const today = startOfDay(new Date());
+    if (period === "week_sunday") {
+      const dow = today.getDay(); // Sun=0
+      const endExcl = dow === 0 ? addDays(today, 1) : addDays(today, -(dow - 1));
+      const from = addDays(endExcl, -7);
+      return {
+        from: toISODateLocal(from),
+        to: toISODateLocal(endExcl),
+        label: `Weekly (ending Sunday ${toDMYFromISO(toISODateLocal(addDays(endExcl, -1)))})`,
+      };
+    }
+    if (period === "month") {
+      const from = new Date(today.getFullYear(), today.getMonth(), 1);
+      const to = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+      return { from: toISODateLocal(from), to: toISODateLocal(to), label: "This month" };
+    }
+    const from = new Date(today.getFullYear(), 0, 1);
+    const to = new Date(today.getFullYear() + 1, 0, 1);
+    return { from: toISODateLocal(from), to: toISODateLocal(to), label: "This year" };
+  }
+
+  async function loadPayrollTargets(){
+    const j = await getJSON("/api/portal/manager/employees-basic");
+    const sel = $("p_target");
+    sel.innerHTML = `<option value="">All employees</option>`;
+    for (const e of (j.employees || [])) {
+      const label = `${e.username}${e.full_name ? ` — ${e.full_name}` : ""}`;
+      const opt = document.createElement("option");
+      opt.value = String(e.id);
+      opt.textContent = label;
+      sel.appendChild(opt);
+    }
+  }
+
   $("createBtn").addEventListener("click", async ()=>{
     $("createMsg").textContent = "";
     try{
@@ -522,21 +562,21 @@
   $("refreshBookings").addEventListener("click", loadBookings);
   $("dashPeriod").addEventListener("change", renderSummary);
 
-  function getPayrollRangeOrThrow(){
-    const fromRaw = $("p_from").value.trim();
-    const toRaw = $("p_to").value.trim();
-    const from = toISODateFromDMY(fromRaw);
-    const to = toISODateFromDMY(toRaw);
-    if (!from || !to) throw new Error("Use DD/MM/YYYY format for both dates.");
-    if (from >= to) throw new Error("'To' date must be after 'From' date.");
-    return { from, to };
+  function getPayrollParams(){
+    const period = $("p_period").value || "week_sunday";
+    const { from, to, label } = rangeForPeriod(period);
+    const employeeId = $("p_target").value.trim();
+    const qp = new URLSearchParams({ from, to });
+    if (employeeId) qp.set("employee_user_id", employeeId);
+    return { query: qp.toString(), periodLabel: label, employeeId };
   }
 
-  function renderPayroll(j){
+  function renderPayroll(j, context){
     const totals = j?.totals || {};
     const rows = j?.employees || [];
 
-    $("p_msg").textContent = `Range: ${toDMYFromISO(j?.range?.from)} to ${toDMYFromISO(j?.range?.to)}`;
+    const who = context?.employeeId ? "Selected employee" : "All employees";
+    $("p_msg").textContent = `${context?.periodLabel || "Period"} • ${who} • Range: ${toDMYFromISO(j?.range?.from)} to ${toDMYFromISO(j?.range?.to)} • ${j?.pay_rule || ""}`;
 
     const totalsGrid = $("p_totals");
     totalsGrid.innerHTML = "";
@@ -544,6 +584,7 @@
       ["Total Revenue", totals.total_fmt || aud(0)],
       ["Employee Wages", totals.employee_fmt || aud(0)],
       ["Per Manager", totals.manager_each_fmt || aud(0)],
+      ["Cars Washed", String(Number(totals.cars_washed || 0))],
     ];
     for (const [k, v] of cards) {
       const d = document.createElement("div");
@@ -557,7 +598,7 @@
     tbody.innerHTML = "";
     if (!rows.length) {
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td colspan="5">No payroll rows for this range.</td>`;
+      tr.innerHTML = `<td colspan="7">No payroll rows for this range.</td>`;
       tbody.appendChild(tr);
       return;
     }
@@ -571,7 +612,9 @@
         <td><b>${escapeHtml(r.full_name || r.username || "")}</b><div class="small">${escapeHtml(r.username || "")}</div></td>
         <td>${escapeHtml(r.email || "")}<div class="small">${escapeHtml(r.phone || "")}</div></td>
         <td>${bankText}</td>
+        <td>${Number(r.cars_washed || 0)}</td>
         <td>${Number(r.jobs || 0)}</td>
+        <td>${Number(r.effective_rate_pct || 0)}%</td>
         <td><b>${aud(Number(r.employee_pay_cents || 0))}</b></td>
       `;
       tbody.appendChild(tr);
@@ -580,25 +623,25 @@
 
   $("p_run").addEventListener("click", async ()=>{
     try {
-      const { from, to } = getPayrollRangeOrThrow();
-      const j = await getJSON(`/api/portal/manager/payroll?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
-      renderPayroll(j);
+      const ctx = getPayrollParams();
+      const j = await getJSON(`/api/portal/manager/payroll?${ctx.query}`);
+      renderPayroll(j, ctx);
     } catch (e) {
       alert(String(e.message || e));
     }
   });
   $("p_csv").addEventListener("click", ()=>{
     try {
-      const { from, to } = getPayrollRangeOrThrow();
-      window.location.href = `/api/portal/manager/payroll-csv?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+      const ctx = getPayrollParams();
+      window.location.href = `/api/portal/manager/payroll-csv?${ctx.query}`;
     } catch (e) {
       alert(String(e.message || e));
     }
   });
   $("p_pdf").addEventListener("click", ()=>{
     try {
-      const { from, to } = getPayrollRangeOrThrow();
-      window.location.href = `/api/portal/manager/payroll-pdf?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+      const ctx = getPayrollParams();
+      window.location.href = `/api/portal/manager/payroll-pdf?${ctx.query}`;
     } catch (e) {
       alert(String(e.message || e));
     }
@@ -608,14 +651,10 @@
 
   (async ()=>{
     await ensureManager();
-    const now = new Date();
-    const weekAgo = new Date(now);
-    weekAgo.setDate(now.getDate() - 7);
-    $("p_from").value = formatDateOnlyDMY(weekAgo);
-    $("p_to").value = formatDateOnlyDMY(now);
     await loadSummary();
     await loadBookings();
     await loadEmployees();
+    await loadPayrollTargets();
   })();
 </script>
 </body>

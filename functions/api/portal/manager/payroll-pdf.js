@@ -86,8 +86,10 @@ export async function onRequestGet(context) {
   const url = new URL(request.url);
   const from = String(url.searchParams.get("from") || "");
   const to = String(url.searchParams.get("to") || "");
+  const employeeUserIdRaw = url.searchParams.get("employee_user_id");
+  const employeeUserId = employeeUserIdRaw ? Number(employeeUserIdRaw) : null;
   const isoRe = /^\d{4}-\d{2}-\d{2}$/;
-  if (!isoRe.test(from) || !isoRe.test(to) || from >= to) {
+  if (!isoRe.test(from) || !isoRe.test(to) || from >= to || (employeeUserIdRaw && !Number.isFinite(employeeUserId))) {
     return new Response("Invalid from/to. Use YYYY-MM-DD and ensure from < to.", { status: 400 });
   }
 
@@ -101,25 +103,30 @@ export async function onRequestGet(context) {
         ep.bank_bsb_enc,
         ep.bank_account_enc,
         SUM(ba.employee_pay_cents) AS employee_pay_cents,
+        SUM(ba.total_price_cents) AS total_price_cents,
+        SUM(ba.cars_count) AS cars_washed,
         COUNT(*) AS jobs
      FROM booking_assignments ba
      JOIN bookings b ON b.id = ba.booking_id
      JOIN users u ON u.id = ba.employee_user_id
      LEFT JOIN employee_profiles ep ON ep.user_id = u.id
      WHERE datetime(b.start_time) >= datetime(?) AND datetime(b.start_time) < datetime(?)
+       AND (? IS NULL OR ba.employee_user_id = ?)
      GROUP BY ba.employee_user_id
      ORDER BY employee_pay_cents DESC`
-  ).bind(from, to).all();
+  ).bind(from, to, employeeUserId, employeeUserId).all();
 
   const totals = await env.DB.prepare(
     `SELECT
        SUM(ba.total_price_cents) AS total_cents,
        SUM(ba.employee_pay_cents) AS employee_cents,
-       SUM(ba.manager_each_cents) AS manager_each_sum
+       SUM(ba.manager_each_cents) AS manager_each_sum,
+       SUM(ba.cars_count) AS cars_washed
      FROM booking_assignments ba
      JOIN bookings b ON b.id = ba.booking_id
-     WHERE datetime(b.start_time) >= datetime(?) AND datetime(b.start_time) < datetime(?)`
-  ).bind(from, to).first();
+     WHERE datetime(b.start_time) >= datetime(?) AND datetime(b.start_time) < datetime(?)
+       AND (? IS NULL OR ba.employee_user_id = ?)`
+  ).bind(from, to, employeeUserId, employeeUserId).first();
 
   const lines = [];
   lines.push("CJ Detailing - Payroll Report");
@@ -129,25 +136,30 @@ export async function onRequestGet(context) {
   lines.push(`Total Revenue:   ${formatAUD(totals?.total_cents || 0)}`);
   lines.push(`Employee Wages:  ${formatAUD(totals?.employee_cents || 0)}`);
   lines.push(`Per Manager:     ${formatAUD(totals?.manager_each_sum || 0)}`);
+  lines.push(`Cars Washed:     ${Number(totals?.cars_washed || 0)}`);
+  lines.push("Pay Rule:        20% rounded up to nearest $5 per booking");
   lines.push("");
   lines.push("Employee Details");
   lines.push("--------------------------------------------------------------------------------");
-  lines.push("Name                 Username   Jobs  Owed         BSB      Account       Email");
+  lines.push("Name                 User       Cars  Jobs  Earned       Rate   Email");
   lines.push("--------------------------------------------------------------------------------");
 
   for (const r of (rows.results || [])) {
     const bsb = r.bank_bsb_enc ? await decryptString(env, r.bank_bsb_enc) : "-";
     const acc = r.bank_account_enc ? await decryptString(env, r.bank_account_enc) : "-";
+    const total = r.total_price_cents || 0;
+    const effectiveRate = total > 0 ? Math.round(((r.employee_pay_cents || 0) / total) * 1000) / 10 : 0;
     const line = [
       clip(r.full_name || "-", 20).padEnd(20, " "),
       clip(r.username || "-", 10).padEnd(10, " "),
+      String(r.cars_washed || 0).padStart(4, " "),
       String(r.jobs || 0).padStart(4, " "),
-      clip(formatAUD(r.employee_pay_cents || 0), 11).padEnd(11, " "),
-      clip(bsb || "-", 8).padEnd(8, " "),
-      clip(acc || "-", 13).padEnd(13, " "),
-      clip(r.email || "-", 28),
+      clip(formatAUD(r.employee_pay_cents || 0), 12).padEnd(12, " "),
+      clip(`${effectiveRate}%`, 6).padEnd(6, " "),
+      clip(r.email || "-", 30),
     ].join(" ");
     lines.push(line);
+    if (bsb !== "-" || acc !== "-") lines.push(`  bank: ${clip(bsb, 12)} / ${clip(acc, 16)}`);
     if (r.phone) lines.push(`  phone: ${clip(r.phone, 40)}`);
   }
 
