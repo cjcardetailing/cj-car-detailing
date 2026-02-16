@@ -1,19 +1,24 @@
 import { requireRole } from "../../../_lib/requireAuth.js";
+import { getPeriodRange } from "../../../_lib/dashboard.js";
 
 export async function onRequestGet(context) {
   const { env, request } = context;
   const auth = await requireRole(env, request, "MANAGER");
   if (!auth.ok) return auth.res;
   const managerUserId = Number(auth.user.id) || 0;
+  const url = new URL(request.url);
+  const range = getPeriodRange(url.searchParams.get("period"));
 
   const bookingRows = await env.DB.prepare(
     `SELECT b.start_time AS date, ba.total_price_cents, ba.manager_each_cents
      FROM booking_assignments ba
      JOIN bookings b ON b.id = ba.booking_id
      WHERE ba.completed_at IS NOT NULL
+       AND datetime(b.start_time, 'localtime') >= datetime(?)
+       AND datetime(b.start_time, 'localtime') < datetime(?)
      ORDER BY datetime(b.start_time) ASC
      LIMIT 500`
-  ).all();
+  ).bind(range.fromDateTime, range.toDateTime).all();
 
   let manualRows = { results: [] };
   try {
@@ -24,9 +29,11 @@ export async function onRequestGet(context) {
          mpe.pay_cents AS manager_each_cents
        FROM manual_pay_entries mpe
        WHERE mpe.employee_user_id = ?
+         AND datetime(mpe.job_time, 'localtime') >= datetime(?)
+         AND datetime(mpe.job_time, 'localtime') < datetime(?)
        ORDER BY datetime(mpe.job_time) ASC
        LIMIT 500`
-    ).bind(managerUserId).all();
+    ).bind(managerUserId, range.fromDateTime, range.toDateTime).all();
   } catch {
     manualRows = { results: [] };
   }
@@ -43,7 +50,7 @@ export async function onRequestGet(context) {
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     .slice(-1000);
 
-  return new Response(JSON.stringify({ ok: true, entries }), {
+  return new Response(JSON.stringify({ ok: true, period: range.period, range: { from: range.fromDate, to: range.toDate }, entries }), {
     status: 200,
     headers: { "content-type": "application/json" },
   });
