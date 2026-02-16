@@ -1,19 +1,11 @@
 import { sendEmail } from "../../../_lib/email.js";
 
 function randomPassword() {
-  // 24 chars, strong. We'll include mixed chars.
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*()-_=+";
   const bytes = crypto.getRandomValues(new Uint8Array(24));
   let out = "";
   for (let i = 0; i < bytes.length; i++) out += chars[bytes[i] % chars.length];
   return out;
-}
-
-async function sha256Hex(str) {
-  const enc = new TextEncoder();
-  const buf = await crypto.subtle.digest("SHA-256", enc.encode(str));
-  const bytes = new Uint8Array(buf);
-  return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 async function hashPassword(password) {
@@ -26,81 +18,102 @@ async function hashPassword(password) {
     256
   );
   const hashBytes = new Uint8Array(bits);
+
   const saltHex = [...salt].map(b => b.toString(16).padStart(2,"0")).join("");
   const hashHex = [...hashBytes].map(b => b.toString(16).padStart(2,"0")).join("");
   return `pbkdf2_sha256$150000$${saltHex}$${hashHex}`;
 }
 
-// This endpoint is protected by a one-time key so nobody can call it publicly.
-function unauthorized() {
-  return new Response("unauthorized", { status: 401 });
+function json(status, obj) {
+  return new Response(JSON.stringify(obj, null, 2), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
 }
 
 export async function onRequestPost(context) {
   const { env, request } = context;
 
-  const setupKey = env.PORTAL_SETUP_KEY;
-  if (!setupKey) {
-    return new Response("Missing PORTAL_SETUP_KEY env var", { status: 500 });
-  }
+  try {
+    // ---- Config checks ----
+    const setupKey = env.PORTAL_SETUP_KEY;
+    if (!setupKey) return json(500, { error: "Missing PORTAL_SETUP_KEY env var" });
 
-  const headerKey = request.headers.get("x-setup-key");
-  if (headerKey !== setupKey) return unauthorized();
+    const headerKey = request.headers.get("x-setup-key");
+    if (headerKey !== setupKey) return json(401, { error: "unauthorized" });
 
-  const m1 = (env.MANAGER1_EMAIL || "").toLowerCase().trim();
-  const m2 = (env.MANAGER2_EMAIL || "").toLowerCase().trim();
-  if (!m1 || !m2) return new Response("Missing MANAGER1_EMAIL or MANAGER2_EMAIL", { status: 500 });
+    const m1 = (env.MANAGER1_EMAIL || "").toLowerCase().trim();
+    const m2 = (env.MANAGER2_EMAIL || "").toLowerCase().trim();
+    if (!m1 || !m2) return json(500, { error: "Missing MANAGER1_EMAIL or MANAGER2_EMAIL" });
 
-  // Prevent running twice: if any manager exists, stop.
-  const existing = await env.DB.prepare(
-    "SELECT COUNT(*) AS c FROM users WHERE role='MANAGER'"
-  ).first();
+    if (!env.DB) return json(500, { error: "Missing DB binding (env.DB undefined)" });
 
-  if ((existing?.c || 0) > 0) {
-    return new Response("Managers already exist", { status: 400 });
-  }
+    // ---- Prevent running twice ----
+    const existing = await env.DB.prepare(
+      "SELECT COUNT(*) AS c FROM users WHERE role='MANAGER'"
+    ).first();
 
-  const managers = [
-    { username: "cj000001", email: m1 },
-    { username: "cj000002", email: m2 },
-  ];
+    if ((existing?.c || 0) > 0) {
+      return json(400, { error: "Managers already exist" });
+    }
 
-  const created = [];
+    // ---- Create managers ----
+    const managers = [
+      { username: "cj000001", email: m1 },
+      { username: "cj000002", email: m2 },
+    ];
 
-  for (const mgr of managers) {
-    const pw = randomPassword();
-    const pwHash = await hashPassword(pw);
+    const created = [];
 
-    await env.DB.prepare(
-      `INSERT INTO users (username, email, role, password_hash, is_active)
-       VALUES (?, ?, 'MANAGER', ?, 1)`
-    ).bind(mgr.username, mgr.email, pwHash).run();
+    for (const mgr of managers) {
+      const pw = randomPassword();
+      const pwHash = await hashPassword(pw);
 
-    created.push({ ...mgr, password: pw });
-  }
+      await env.DB.prepare(
+        `INSERT INTO users (username, email, role, password_hash, is_active)
+         VALUES (?, ?, 'MANAGER', ?, 1)`
+      ).bind(mgr.username, mgr.email, pwHash).run();
 
-  // Email both managers
-  const portalUrl = (env.PUBLIC_BASE_URL || "https://cjdetailing.shop") + "/portal";
+      created.push({ ...mgr, password: pw });
+    }
 
-  for (const mgr of created) {
-    await sendEmail(env, {
-      to: mgr.email,
-      subject: "Your CJ Portal manager login",
-      html: `
-        <div style="font-family:Arial,sans-serif;line-height:1.5">
-          <h2>CJ Portal Manager Access</h2>
-          <p>Use the details below to log in:</p>
-          <p><b>Portal:</b> <a href="${portalUrl}">${portalUrl}</a></p>
-          <p><b>Username:</b> ${mgr.username}<br/>
-             <b>Temporary Password:</b> ${mgr.password}</p>
-          <p><i>After you log in, you can change your password.</i></p>
-        </div>
-      `,
+    // ---- Email credentials ----
+    const portalUrl = (env.PUBLIC_BASE_URL || "https://cjdetailing.shop") + "/portal";
+
+    for (const mgr of created) {
+      try {
+        const resendResp = await sendEmail(env, {
+          to: mgr.email,
+          subject: "Your CJ Portal manager login",
+          html: `
+            <div style="font-family:Arial,sans-serif;line-height:1.5">
+              <h2>CJ Portal Manager Access</h2>
+              <p><b>Portal:</b> <a href="${portalUrl}">${portalUrl}</a></p>
+              <p><b>Username:</b> ${mgr.username}<br/>
+                 <b>Temporary Password:</b> ${mgr.password}</p>
+              <p><i>Please change your password after logging in.</i></p>
+            </div>
+          `,
+        });
+
+        console.log("Resend OK:", resendResp);
+      } catch (emailErr) {
+        // If email fails, we still return success but report email failure
+        console.error("Resend FAILED:", emailErr);
+        return json(500, {
+          error: "Managers created, but email sending failed",
+          details: String(emailErr?.message || emailErr),
+          created: created.map(c => ({ username: c.username, email: c.email })),
+        });
+      }
+    }
+
+    return json(200, {
+      ok: true,
+      created: created.map(c => ({ username: c.username, email: c.email })),
     });
+  } catch (err) {
+    console.error("create-managers crashed:", err);
+    return json(500, { error: "server error", details: String(err?.message || err) });
   }
-
-  return new Response(JSON.stringify({ ok: true, created: created.map(c => ({ username: c.username, email: c.email })) }, null, 2), {
-    status: 200,
-    headers: { "content-type": "application/json" },
-  });
 }
