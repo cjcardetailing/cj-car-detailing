@@ -7,135 +7,215 @@
   <link rel="icon" href="/favicon.png"/>
   <link rel="stylesheet" href="/styles.css"/>
   <style>
-    .wrap{min-height:100vh;padding:18px}
-    .top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+    body{margin:0}
+    .layout{min-height:100vh;display:grid;grid-template-columns:260px 1fr}
+    .side{background:rgba(0,0,0,.65);border-right:1px solid rgba(255,255,255,.10);padding:14px}
+    .brand{font-weight:700;margin:6px 0 18px}
+    .nav button{width:100%;text-align:left;margin:6px 0;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;cursor:pointer}
+    .nav button.active{background:rgba(255,255,255,.16)}
+    .main{padding:16px}
     .card{background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:14px;margin-bottom:14px}
-    input,button{border-radius:10px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.35);color:#fff;padding:8px}
-    button{cursor:pointer}
-    .muted{opacity:.8;font-size:12px}
+    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+    .k{font-size:12px;opacity:.8}
+    .v{font-size:18px;font-weight:700;margin-top:4px}
     table{width:100%;border-collapse:collapse}
     th,td{padding:10px;border-bottom:1px solid rgba(255,255,255,.10);font-size:13px;text-align:left;vertical-align:top}
+    input,button,textarea{border-radius:10px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.35);color:#fff;padding:8px}
+    button{cursor:pointer}
+    .muted{opacity:.8;font-size:12px}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .hidden{display:none}
   </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="top">
-    <div>
-      <h2 style="margin:0;">Employee Dashboard</h2>
-      <div class="muted">Your profile + jobs.</div>
+<div class="layout">
+  <aside class="side">
+    <div class="brand">CJ Employee Portal</div>
+    <div class="nav">
+      <button data-tab="dash" class="active">Dashboard</button>
+      <button data-tab="profile">Profile</button>
+      <button data-tab="jobs">Jobs</button>
+      <button data-tab="availability">Availability</button>
     </div>
-    <button id="logoutBtn">Logout</button>
-  </div>
+    <div style="margin-top:18px;">
+      <button id="logoutBtn" style="width:100%;">Logout</button>
+    </div>
+  </aside>
 
-  <div class="card">
-    <h3 style="margin:0 0 10px;">Profile</h3>
-    <div class="muted" id="pStatus">Loading…</div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;">
-      <input id="full_name" placeholder="Full name"/>
-      <input id="dob" placeholder="DOB YYYY-MM-DD"/>
-      <input id="email" placeholder="Email"/>
-      <input id="phone" placeholder="Phone"/>
-      <input id="bsb" placeholder="BSB"/>
-      <input id="account" placeholder="Account number"/>
-      <button id="saveBtn">Save</button>
+  <main class="main">
+    <div class="card">
+      <h2 style="margin:0;">Employee</h2>
+      <div class="muted" id="meLine">Loading…</div>
     </div>
-    <div class="muted" style="margin-top:8px;" id="bankInfo"></div>
-  </div>
 
-  <div class="card">
-    <h3 style="margin:0 0 10px;">My jobs</h3>
-    <div style="overflow:auto;">
-      <table>
-        <thead><tr><th>When</th><th>Job</th><th>Cars</th><th>Pay</th></tr></thead>
-        <tbody id="jobs"></tbody>
-      </table>
-    </div>
-  </div>
+    <section id="tab-dash" class="card">
+      <h3 style="margin:0 0 10px;">Earnings</h3>
+      <div class="grid" id="earnGrid"></div>
+    </section>
+
+    <section id="tab-profile" class="card hidden">
+      <h3 style="margin:0 0 10px;">Profile</h3>
+      <div class="muted" id="pStatus">Loading…</div>
+      <div class="row" style="margin-top:10px;">
+        <input id="full_name" placeholder="Full name"/>
+        <input id="dob" placeholder="DOB YYYY-MM-DD"/>
+        <input id="email" placeholder="Email"/>
+        <input id="phone" placeholder="Phone"/>
+        <input id="bsb" placeholder="BSB"/>
+        <input id="account" placeholder="Account number"/>
+        <button id="saveBtn">Save</button>
+      </div>
+      <div class="muted" style="margin-top:8px;" id="bankInfo"></div>
+    </section>
+
+    <section id="tab-jobs" class="card hidden">
+      <h3 style="margin:0 0 10px;">My jobs</h3>
+      <div style="overflow:auto;">
+        <table>
+          <thead><tr><th>When</th><th>Job</th><th>Cars</th><th>Pay</th></tr></thead>
+          <tbody id="jobsT"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="tab-availability" class="card hidden">
+      <h3 style="margin:0 0 10px;">Availability (this week)</h3>
+      <div class="muted">Write what days/times you can work. Example: “Mon 4–7pm, Wed after 3pm…”</div>
+      <textarea id="availText" rows="6" style="width:100%;margin-top:10px;"></textarea>
+      <div class="row" style="margin-top:10px;">
+        <button id="availSave">Save Availability</button>
+        <div class="muted" id="availMsg"></div>
+      </div>
+    </section>
+
+  </main>
 </div>
 
 <script>
+  const $=(id)=>document.getElementById(id);
+  const tabs=["dash","profile","jobs","availability"];
+  function aud(c){ return (c/100).toLocaleString("en-AU",{style:"currency",currency:"AUD"}); }
+
   async function getJSON(url){
-    const r = await fetch(url, {credentials:"include"});
+    const r=await fetch(url,{credentials:"include"});
     if(!r.ok) throw new Error(await r.text());
     return r.json();
   }
   async function postJSON(url, body){
-    const r = await fetch(url, {
+    const r=await fetch(url,{
       method:"POST",
       headers:{"content-type":"application/json"},
       body:JSON.stringify(body||{}),
       credentials:"include"
     });
-    const t = await r.text();
+    const t=await r.text();
     let j=null; try{j=JSON.parse(t)}catch{}
     if(!r.ok) throw new Error(j?.error || t);
     return j;
   }
-  function aud(c){return (c/100).toLocaleString("en-AU",{style:"currency",currency:"AUD"});}
+
+  function showTab(name){
+    for(const t of tabs){
+      document.querySelector(`[data-tab="${t}"]`).classList.toggle("active", t===name);
+      document.getElementById(`tab-${t}`).classList.toggle("hidden", t!==name);
+    }
+  }
+  document.querySelectorAll(".nav button").forEach(b=>b.addEventListener("click",()=>showTab(b.dataset.tab)));
+
+  $("logoutBtn").addEventListener("click", async ()=>{
+    await fetch("/api/portal/logout",{method:"POST",credentials:"include"});
+    location.href="/portal/";
+  });
 
   async function ensureEmployee(){
     const me = await getJSON("/api/portal/me");
     if(me?.user?.role!=="EMPLOYEE") location.href="/portal/";
+    $("meLine").textContent = `${me.user.username} • ${me.user.email}`;
+  }
+
+  async function loadEarnings(){
+    const s = await getJSON("/api/portal/employee/summary");
+    const g = $("earnGrid");
+    g.innerHTML="";
+    const blocks = [["This week", s.week],["This month", s.month],["This year", s.year]];
+    for(const [label,v] of blocks){
+      const d=document.createElement("div");
+      d.className="card";
+      d.style.margin="0";
+      d.innerHTML = `
+        <div class="k">${label}</div>
+        <div class="v">${v.pay_fmt}</div>
+        <div class="k" style="margin-top:8px;">Jobs</div>
+        <div class="v">${v.jobs}</div>`;
+      g.appendChild(d);
+    }
   }
 
   async function loadProfile(){
     const j = await getJSON("/api/portal/employee/profile");
     const p = j.profile || {};
-    document.getElementById("full_name").value = p.full_name || "";
-    document.getElementById("dob").value = p.dob || "";
-    document.getElementById("email").value = p.email || "";
-    document.getElementById("phone").value = p.phone || "";
-    document.getElementById("pStatus").textContent = `Bank locked: ${p.bank_locked ? "YES" : "NO"}`;
-    document.getElementById("bankInfo").textContent =
-      p.bank?.hasBank ? `Bank: ${p.bank.bsbMasked} / ${p.bank.accountMasked}` : "Bank not set yet.";
+    $("full_name").value = p.full_name || "";
+    $("dob").value = p.dob || "";
+    $("email").value = p.email || "";
+    $("phone").value = p.phone || "";
+    $("pStatus").textContent = `Bank locked: ${p.bank_locked ? "YES" : "NO"}`;
+    $("bankInfo").textContent = p.bank?.hasBank ? `Bank: ${p.bank.bsbMasked} / ${p.bank.accountMasked}` : "Bank not set yet.";
     if (p.bank_locked) {
-      document.getElementById("bsb").disabled = true;
-      document.getElementById("account").disabled = true;
-      document.getElementById("bsb").placeholder = "Locked";
-      document.getElementById("account").placeholder = "Locked";
+      $("bsb").disabled = true;
+      $("account").disabled = true;
+      $("bsb").placeholder = "Locked";
+      $("account").placeholder = "Locked";
     }
   }
 
   async function loadJobs(){
     const j = await getJSON("/api/portal/employee/jobs");
-    const tbody = document.getElementById("jobs");
-    tbody.innerHTML = "";
+    const tbody = $("jobsT");
+    tbody.innerHTML="";
     for(const x of (j.jobs||[])){
       const when = new Date(x.start_time+"Z");
-      const tr = document.createElement("tr");
+      const tr=document.createElement("tr");
       tr.innerHTML = `
         <td>${when.toLocaleString()}</td>
         <td><b>${x.title||""}</b><div class="muted">${x.location||""}</div></td>
         <td>${x.cars_count}</td>
-        <td>${aud(x.employee_pay_cents)}</td>
-      `;
+        <td>${aud(x.employee_pay_cents)}</td>`;
       tbody.appendChild(tr);
     }
   }
 
-  document.getElementById("saveBtn").addEventListener("click", async ()=>{
-    const body = {
-      full_name: document.getElementById("full_name").value.trim(),
-      dob: document.getElementById("dob").value.trim(),
-      email: document.getElementById("email").value.trim(),
-      phone: document.getElementById("phone").value.trim(),
-      bsb: document.getElementById("bsb").value.trim(),
-      account: document.getElementById("account").value.trim(),
+  $("saveBtn").addEventListener("click", async ()=>{
+    const body={
+      full_name:$("full_name").value.trim(),
+      dob:$("dob").value.trim(),
+      email:$("email").value.trim(),
+      phone:$("phone").value.trim(),
+      bsb:$("bsb").value.trim(),
+      account:$("account").value.trim()
     };
     await postJSON("/api/portal/employee/profile-save", body);
     alert("Saved!");
     await loadProfile();
   });
 
-  document.getElementById("logoutBtn").addEventListener("click", async ()=>{
-    await fetch("/api/portal/logout", {method:"POST", credentials:"include"});
-    location.href="/portal/";
+  async function loadAvail(){
+    const j = await getJSON("/api/portal/employee/availability");
+    $("availText").value = j.availability?.text || "";
+  }
+
+  $("availSave").addEventListener("click", async ()=>{
+    $("availMsg").textContent = "";
+    const body = { availability: { text: $("availText").value.trim() } };
+    await postJSON("/api/portal/employee/availability", body);
+    $("availMsg").textContent = "Saved ✅";
   });
 
   (async ()=>{
     await ensureEmployee();
+    await loadEarnings();
     await loadProfile();
     await loadJobs();
+    await loadAvail();
   })();
 </script>
 </body>
