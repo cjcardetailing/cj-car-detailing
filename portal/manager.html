@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manager Dashboard - CJ Car Detailing</title>
+    <link rel="icon" type="image/png" href="../images/favicon.png">
+    <link rel="stylesheet" href="../styles.css">
+    <link rel="stylesheet" href="portal.css">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar" style="position: fixed; top: 0; left: 0; right: 0; background: rgba(10,10,10,0.95); border-bottom: 1px solid var(--border); z-index: 100;">
+        <div class="container">
+            <div class="nav-wrapper" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 0;">
+                <a href="../index.html" style="color: inherit; text-decoration: none; font-family: Syne; font-weight: 700;">CJ Detailing</a>
+                <span style="color: var(--text-muted);">Manager Portal</span>
+                <button id="logout-btn" class="btn btn-secondary" style="padding: 0.5rem 1rem;">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="portal-container" style="padding-top: 80px;">
+        <div class="sidebar-layout">
+            <aside class="sidebar">
+                <ul class="sidebar-nav">
+                    <li><a href="#overview" class="nav-tab active">Overview</a></li>
+                    <li><a href="#revenue" class="nav-tab">Revenue</a></li>
+                    <li><a href="#payroll" class="nav-tab">Payroll</a></li>
+                    <li><a href="#employees" class="nav-tab">Employees</a></li>
+                    <li><a href="#create-employee" class="nav-tab">Create Employee</a></li>
+                </ul>
+            </aside>
+
+            <main class="main-content">
+                <div id="overview-tab" class="tab-content">
+                    <h2 style="margin-bottom: 24px;">Overview</h2>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                        <div class="portal-card">
+                            <p style="color: var(--text-muted); font-size: 0.9rem;">Total Revenue (Month)</p>
+                            <p id="stat-revenue" style="font-size: 1.75rem; font-weight: 700; color: var(--accent);">-</p>
+                        </div>
+                        <div class="portal-card">
+                            <p style="color: var(--text-muted); font-size: 0.9rem;">Your Share (50%)</p>
+                            <p id="stat-manager" style="font-size: 1.75rem; font-weight: 700; color: var(--accent);">-</p>
+                        </div>
+                        <div class="portal-card">
+                            <p style="color: var(--text-muted); font-size: 0.9rem;">Employee Pay Owed</p>
+                            <p id="stat-payroll" style="font-size: 1.75rem; font-weight: 700;">-</p>
+                        </div>
+                    </div>
+                    <div class="portal-card" style="margin-top: 24px;">
+                        <h3 style="margin-bottom: 16px;">Recent Past Bookings</h3>
+                        <div id="recent-bookings"></div>
+                    </div>
+                </div>
+
+                <div id="revenue-tab" class="tab-content" style="display: none;">
+                    <h2 style="margin-bottom: 24px;">Revenue</h2>
+                    <div style="margin-bottom: 16px;">
+                        <select id="revenue-period" style="margin-right: 8px;">
+                            <option value="week">This Week</option>
+                            <option value="month" selected>This Month</option>
+                            <option value="year">This Year</option>
+                        </select>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
+                        <div class="portal-card">
+                            <p style="color: var(--text-muted);">Total Revenue</p>
+                            <p id="rev-total" style="font-size: 1.5rem; font-weight: 700; color: var(--accent);">-</p>
+                        </div>
+                        <div class="portal-card">
+                            <p style="color: var(--text-muted);">Your Share</p>
+                            <p id="rev-manager" style="font-size: 1.5rem; font-weight: 700;">-</p>
+                        </div>
+                        <div class="portal-card">
+                            <p style="color: var(--text-muted);">Employee Pay</p>
+                            <p id="rev-employee" style="font-size: 1.5rem; font-weight: 700;">-</p>
+                        </div>
+                    </div>
+                    <div class="portal-card">
+                        <h3 style="margin-bottom: 16px;">Bookings – Assign to Employee for Payroll</h3>
+                        <div id="revenue-bookings"></div>
+                    </div>
+                </div>
+
+                <div id="payroll-tab" class="tab-content" style="display: none;">
+                    <h2 style="margin-bottom: 24px;">Payroll Generator</h2>
+                    <div style="margin-bottom: 16px;">
+                        <select id="payroll-period">
+                            <option value="week">This Week</option>
+                            <option value="month" selected>This Month</option>
+                        </select>
+                        <button id="refresh-payroll" class="btn btn-primary" style="margin-left: 8px;">Refresh</button>
+                    </div>
+                    <div class="portal-card">
+                        <p style="margin-bottom: 16px; color: var(--text-muted);">Total owed to employees: <strong id="payroll-total">$0</strong></p>
+                        <div id="payroll-list"></div>
+                    </div>
+                </div>
+
+                <div id="employees-tab" class="tab-content" style="display: none;">
+                    <h2 style="margin-bottom: 24px;">Employees</h2>
+                    <div class="portal-card">
+                        <div id="employees-list"></div>
+                    </div>
+                </div>
+
+                <div id="create-employee-tab" class="tab-content" style="display: none;">
+                    <h2 style="margin-bottom: 24px;">Create Employee Account</h2>
+                    <div class="portal-card" style="max-width: 480px;">
+                        <form id="create-employee-form">
+                            <label style="display: block; margin-bottom: 8px;">Full Name</label>
+                            <input type="text" id="emp-name" required style="width: 100%; margin-bottom: 16px;">
+                            <label style="display: block; margin-bottom: 8px;">Date of Birth</label>
+                            <input type="date" id="emp-dob" required style="width: 100%; margin-bottom: 16px;">
+                            <p id="emp-age" style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 16px;"></p>
+                            <label style="display: block; margin-bottom: 8px;">Email (optional - for sending credentials)</label>
+                            <input type="email" id="emp-email" style="width: 100%; margin-bottom: 24px;">
+                            <button type="submit" class="btn btn-primary">Finalize Employee Creation</button>
+                        </form>
+                    </div>
+                    <div id="new-credentials" class="portal-card" style="margin-top: 24px; max-width: 480px; display: none;">
+                        <h3 style="margin-bottom: 16px;">Account Created</h3>
+                        <p>Username: <strong id="new-username"></strong></p>
+                        <p>Password: <strong id="new-password"></strong></p>
+                        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 16px;">Write these down, then close. The password cannot be recovered.</p>
+                        <button id="close-credentials" class="btn btn-secondary" style="margin-top: 16px;">I've written it down</button>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="portal.js"></script>
+    <script>
+        if (!Portal.getToken() && !Portal.getSessionToken()) {
+            location.href = '/portal/';
+        }
+
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            Portal.clearAuth();
+            location.href = '/portal/';
+        });
+
+        const tabs = document.querySelectorAll('.nav-tab');
+        const contents = document.querySelectorAll('.tab-content');
+        tabs.forEach(t => t.addEventListener('click', (e) => {
+            e.preventDefault();
+            const target = t.getAttribute('href').slice(1) + '-tab';
+            tabs.forEach(x => x.classList.remove('active'));
+            contents.forEach(x => x.style.display = 'none');
+            t.classList.add('active');
+            document.getElementById(target).style.display = 'block';
+        }));
+
+        async function managerApi(path) {
+            return Portal.api(path, { headers: Portal.getAuthHeader() });
+        }
+
+        async function loadOverview() {
+            try {
+                const rev = await Portal.api('/manager/revenue?period=month');
+                document.getElementById('stat-revenue').textContent = Portal.formatCurrency(rev.totalRevenue);
+                document.getElementById('stat-manager').textContent = Portal.formatCurrency(rev.perManager);
+                const payroll = await Portal.api('/manager/payroll?period=month');
+                document.getElementById('stat-payroll').textContent = Portal.formatCurrency(payroll.totalOwed);
+                const html = rev.bookings.slice(0, 5).map(b => 
+                    `<div style="padding: 12px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between;">
+                        <span>${b.title || 'Booking'} - ${Portal.formatDate(b.start)}</span>
+                        <span>${Portal.formatCurrency(b.amount)}</span>
+                    </div>`
+                ).join('');
+                document.getElementById('recent-bookings').innerHTML = html || '<p style="color: var(--text-muted);">No recent bookings</p>';
+            } catch (e) { console.error(e); }
+        }
+
+        let revenueData = {};
+        async function loadRevenue() {
+            const period = document.getElementById('revenue-period').value;
+            const rev = await Portal.api(`/manager/revenue?period=${period}`);
+            revenueData = rev;
+            document.getElementById('rev-total').textContent = Portal.formatCurrency(rev.totalRevenue);
+            document.getElementById('rev-manager').textContent = Portal.formatCurrency(rev.perManager);
+            document.getElementById('rev-employee').textContent = Portal.formatCurrency(rev.totalEmployeePay);
+            const employees = await Portal.api('/manager/employees');
+            const options = employees.employees.map(e => `<option value="${e.user_id}">${e.full_name || e.username}</option>`).join('');
+            const bookings = await Portal.api(`/manager/bookings?period=${period}`);
+            const assigns = bookings.assignments || {};
+            const html = rev.bookings.map(b => {
+                const a = assigns[b.id];
+                const sel = a ? a.userId : '';
+                return `<div style="padding: 12px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <span>${b.title || 'Booking'} - ${Portal.formatDate(b.start)} (${b.numCars} car${b.numCars > 1 ? 's' : ''})</span>
+                    <span>${Portal.formatCurrency(b.amount)} | Employee: ${Portal.formatCurrency(b.employeePay)}</span>
+                    <select class="assign-employee" data-booking="${b.id}" data-amount="${b.employeePay}" style="min-width: 140px;">
+                        <option value="">— Assign —</option>${options}
+                    </select>
+                </div>`;
+            }).join('');
+            document.getElementById('revenue-bookings').innerHTML = html || '<p style="color: var(--text-muted);">No bookings</p>';
+            document.querySelectorAll('.assign-employee').forEach(s => {
+                s.value = assigns[s.dataset.booking]?.userId || '';
+                s.addEventListener('change', async () => {
+                    const uid = s.dataset.booking, userId = s.value ? parseInt(s.value, 10) : null, amount = parseFloat(s.dataset.amount);
+                    if (!userId || !uid) return;
+                    await Portal.api('/manager/assign-booking', { method: 'POST', body: JSON.stringify({ bookingUid: uid, userId, amount }) });
+                    loadPayroll();
+                });
+            });
+        }
+
+        async function loadPayroll() {
+            const period = document.getElementById('payroll-period').value;
+            const data = await Portal.api(`/manager/payroll?period=${period}`);
+            document.getElementById('payroll-total').textContent = Portal.formatCurrency(data.totalOwed);
+            const html = data.payroll.map(e => `
+                <div style="padding: 16px; border-bottom: 1px solid var(--border);">
+                    <strong>${e.full_name || e.username}</strong>
+                    <p style="color: var(--text-muted); font-size: 0.9rem;">BSB: ${e.bsb || '-'} | Acc: ${e.account_number ? '****' + e.account_number.slice(-4) : '-'}</p>
+                    <p>Amount owed: ${Portal.formatCurrency(e.amount_owed)}</p>
+                </div>
+            `).join('');
+            document.getElementById('payroll-list').innerHTML = html || '<p style="color: var(--text-muted);">No employees or assignments yet</p>';
+        }
+
+        async function loadEmployees() {
+            const data = await Portal.api('/manager/employees');
+            const html = data.employees.map(e => `
+                <div style="padding: 16px; border-bottom: 1px solid var(--border);">
+                    <strong>${e.full_name || e.username}</strong> (${e.username})
+                    <p style="color: var(--text-muted); font-size: 0.9rem;">DOB: ${e.dob || '-'} | Email: ${e.email || '-'} | Phone: ${e.phone || '-'}</p>
+                    <p style="font-size: 0.9rem;">BSB: ${e.bsb || '-'} | Acc: ${e.account_number ? '****' + e.account_number.slice(-4) : '-'}</p>
+                </div>
+            `).join('');
+            document.getElementById('employees-list').innerHTML = html || '<p style="color: var(--text-muted);">No employees yet</p>';
+        }
+
+        document.getElementById('revenue-period').addEventListener('change', loadRevenue);
+        document.getElementById('payroll-period').addEventListener('change', loadPayroll);
+        document.getElementById('refresh-payroll').addEventListener('click', loadPayroll);
+
+        document.getElementById('emp-dob').addEventListener('change', () => {
+            const dob = document.getElementById('emp-dob').value;
+            if (!dob) return;
+            const birth = new Date(dob);
+            const now = new Date();
+            let years = now.getFullYear() - birth.getFullYear();
+            let months = now.getMonth() - birth.getMonth();
+            if (months < 0) { years--; months += 12; }
+            document.getElementById('emp-age').textContent = `${years} years ${months} months`;
+        });
+
+        document.getElementById('create-employee-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('emp-name').value.trim();
+            const dob = document.getElementById('emp-dob').value;
+            const email = document.getElementById('emp-email').value.trim() || undefined;
+            try {
+                const res = await Portal.api('/manager/employees', {
+                    method: 'POST',
+                    body: JSON.stringify({ name, dob, email }),
+                });
+                document.getElementById('new-username').textContent = res.username;
+                document.getElementById('new-password').textContent = res.password;
+                document.getElementById('new-credentials').style.display = 'block';
+                document.getElementById('create-employee-form').reset();
+                document.getElementById('emp-age').textContent = '';
+            } catch (err) {
+                alert(err.message || 'Failed to create employee');
+            }
+        });
+
+        document.getElementById('close-credentials').addEventListener('click', () => {
+            document.getElementById('new-credentials').style.display = 'none';
+            loadEmployees();
+        });
+
+        loadOverview();
+    </script>
+</body>
+</html>

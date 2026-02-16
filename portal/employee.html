@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Dashboard - CJ Car Detailing</title>
+    <link rel="icon" type="image/png" href="../images/favicon.png">
+    <link rel="stylesheet" href="../styles.css">
+    <link rel="stylesheet" href="portal.css">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar" style="position: fixed; top: 0; left: 0; right: 0; background: rgba(10,10,10,0.95); border-bottom: 1px solid var(--border); z-index: 100;">
+        <div class="container">
+            <div class="nav-wrapper" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 0;">
+                <a href="../index.html" style="color: inherit; text-decoration: none; font-family: Syne; font-weight: 700;">CJ Detailing</a>
+                <span style="color: var(--text-muted);">Employee Portal</span>
+                <button id="logout-btn" class="btn btn-secondary" style="padding: 0.5rem 1rem;">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="portal-container" style="padding-top: 80px;">
+        <div class="sidebar-layout">
+            <aside class="sidebar">
+                <ul class="sidebar-nav">
+                    <li><a href="#overview" class="nav-tab active">Overview</a></li>
+                    <li><a href="#earnings" class="nav-tab">Earnings</a></li>
+                    <li><a href="#jobs" class="nav-tab">My Jobs</a></li>
+                    <li><a href="#profile" class="nav-tab">Profile</a></li>
+                    <li><a href="#availability" class="nav-tab">Availability</a></li>
+                </ul>
+            </aside>
+
+            <main class="main-content">
+                <div id="overview-tab" class="tab-content">
+                    <h2 style="margin-bottom: 24px;">Overview</h2>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                        <div class="portal-card">
+                            <p style="color: var(--text-muted); font-size: 0.9rem;">Earnings This Month</p>
+                            <p id="stat-earnings" style="font-size: 1.75rem; font-weight: 700; color: var(--accent);">-</p>
+                        </div>
+                        <div class="portal-card">
+                            <p style="color: var(--text-muted); font-size: 0.9rem;">Upcoming Jobs</p>
+                            <p id="stat-jobs" style="font-size: 1.75rem; font-weight: 700;">-</p>
+                        </div>
+                    </div>
+                    <div class="portal-card" style="margin-top: 24px;">
+                        <h3 style="margin-bottom: 16px;">Upcoming Jobs</h3>
+                        <div id="overview-jobs"></div>
+                    </div>
+                </div>
+
+                <div id="earnings-tab" class="tab-content" style="display: none;">
+                    <h2 style="margin-bottom: 24px;">Earnings</h2>
+                    <div style="margin-bottom: 16px;">
+                        <select id="earnings-period">
+                            <option value="week">This Week</option>
+                            <option value="month" selected>This Month</option>
+                            <option value="year">This Year</option>
+                        </select>
+                    </div>
+                    <div class="portal-card">
+                        <p style="font-size: 1.5rem; font-weight: 700; color: var(--accent);" id="earnings-total">-</p>
+                    </div>
+                </div>
+
+                <div id="jobs-tab" class="tab-content" style="display: none;">
+                    <h2 style="margin-bottom: 24px;">My Jobs</h2>
+                    <div class="portal-card">
+                        <div id="jobs-list"></div>
+                    </div>
+                </div>
+
+                <div id="profile-tab" class="tab-content" style="display: none;">
+                    <h2 style="margin-bottom: 24px;">Profile</h2>
+                    <div class="portal-card" style="max-width: 520px;">
+                        <p style="color: var(--text-muted); margin-bottom: 16px;">Enter your details. Bank details can only be changed by a manager after they are set.</p>
+                        <form id="profile-form">
+                            <label style="display: block; margin-bottom: 8px;">Full Name</label>
+                            <input type="text" id="profile-name" style="width: 100%; margin-bottom: 16px;">
+                            <label style="display: block; margin-bottom: 8px;">Date of Birth</label>
+                            <input type="date" id="profile-dob" style="width: 100%; margin-bottom: 16px;">
+                            <p id="profile-age" style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 16px;"></p>
+                            <label style="display: block; margin-bottom: 8px;">Email</label>
+                            <input type="email" id="profile-email" style="width: 100%; margin-bottom: 16px;">
+                            <label style="display: block; margin-bottom: 8px;">Phone</label>
+                            <input type="tel" id="profile-phone" style="width: 100%; margin-bottom: 16px;">
+                            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px;">Bank details (BSB & Account): Ask your manager to update these.</p>
+                            <button type="submit" class="btn btn-primary">Save Profile</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div id="availability-tab" class="tab-content" style="display: none;">
+                    <h2 style="margin-bottom: 24px;">Availability</h2>
+                    <div class="portal-card" style="max-width: 520px;">
+                        <p style="color: var(--text-muted); margin-bottom: 16px;">Enter your availability for the week (e.g. Mon-Fri 9am-5pm, or specific days/times).</p>
+                        <textarea id="availability-input" rows="5" style="width: 100%; background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text); padding: 1rem; border-radius: 4px; margin-bottom: 16px;"></textarea>
+                        <button id="save-availability" class="btn btn-primary">Save Availability</button>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="portal.js"></script>
+    <script>
+        if (!Portal.getToken() && !Portal.getSessionToken()) {
+            location.href = '/portal/';
+        }
+
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            Portal.clearAuth();
+            location.href = '/portal/';
+        });
+
+        const tabs = document.querySelectorAll('.nav-tab');
+        const contents = document.querySelectorAll('.tab-content');
+        tabs.forEach(t => t.addEventListener('click', (e) => {
+            e.preventDefault();
+            const target = t.getAttribute('href').slice(1) + '-tab';
+            tabs.forEach(x => x.classList.remove('active'));
+            contents.forEach(x => x.style.display = 'none');
+            t.classList.add('active');
+            document.getElementById(target).style.display = 'block';
+            if (target === 'profile-tab') loadProfile();
+            if (target === 'availability-tab') loadProfile();
+        }));
+
+        async function loadOverview() {
+            try {
+                const [earnings, jobs] = await Promise.all([
+                    Portal.api('/employee/earnings?period=month'),
+                    Portal.api('/employee/jobs'),
+                ]);
+                document.getElementById('stat-earnings').textContent = Portal.formatCurrency(earnings.total);
+                document.getElementById('stat-jobs').textContent = jobs.jobs.length;
+                const html = jobs.jobs.slice(0, 5).map(j => 
+                    `<div style="padding: 12px; border-bottom: 1px solid var(--border);">
+                        <strong>${j.title || 'Job'}</strong> - ${Portal.formatDate(j.start)}
+                        <p style="color: var(--text-muted); font-size: 0.9rem;">${j.location || ''} | ${j.numCars} car${j.numCars > 1 ? 's' : ''} | ${Portal.formatCurrency(j.employeePay)}</p>
+                    </div>`
+                ).join('');
+                document.getElementById('overview-jobs').innerHTML = html || '<p style="color: var(--text-muted);">No upcoming jobs</p>';
+            } catch (e) { console.error(e); }
+        }
+
+        async function loadEarnings() {
+            const period = document.getElementById('earnings-period').value;
+            const data = await Portal.api(`/employee/earnings?period=${period}`);
+            document.getElementById('earnings-total').textContent = Portal.formatCurrency(data.total);
+        }
+
+        async function loadJobs() {
+            const data = await Portal.api('/employee/jobs');
+            const html = data.jobs.map(j => `
+                <div style="padding: 16px; border-bottom: 1px solid var(--border);">
+                    <strong>${j.title || 'Job'}</strong> - ${Portal.formatDate(j.start)}
+                    <p style="color: var(--text-muted);">${j.location || 'Location TBD'}</p>
+                    <p>${j.numCars} car${j.numCars > 1 ? 's' : ''} | Your pay: ${Portal.formatCurrency(j.employeePay)}</p>
+                </div>
+            `).join('');
+            document.getElementById('jobs-list').innerHTML = html || '<p style="color: var(--text-muted);">No upcoming jobs</p>';
+        }
+
+        async function loadProfile() {
+            const me = await Portal.api('/me');
+            if (me.profile) {
+                document.getElementById('profile-name').value = me.profile.full_name || '';
+                document.getElementById('profile-dob').value = me.profile.dob || '';
+                document.getElementById('profile-email').value = me.profile.email || me.email || '';
+                document.getElementById('profile-phone').value = me.profile.phone || '';
+                if (me.profile.dob) {
+                    const birth = new Date(me.profile.dob);
+                    const now = new Date();
+                    let years = now.getFullYear() - birth.getFullYear();
+                    let months = now.getMonth() - birth.getMonth();
+                    if (months < 0) { years--; months += 12; }
+                    document.getElementById('profile-age').textContent = `${years} years ${months} months`;
+                }
+            }
+            if (me.profile?.availability != null) {
+                const val = me.profile.availability;
+                document.getElementById('availability-input').value = typeof val === 'string' 
+                    ? val 
+                    : (typeof val === 'object' ? JSON.stringify(val, null, 2) : String(val));
+            }
+        }
+
+        document.getElementById('profile-dob').addEventListener('change', () => {
+            const dob = document.getElementById('profile-dob').value;
+            if (!dob) return;
+            const birth = new Date(dob);
+            const now = new Date();
+            let years = now.getFullYear() - birth.getFullYear();
+            let months = now.getMonth() - birth.getMonth();
+            if (months < 0) { years--; months += 12; }
+            document.getElementById('profile-age').textContent = `${years} years ${months} months`;
+        });
+
+        document.getElementById('earnings-period').addEventListener('change', loadEarnings);
+
+        document.getElementById('profile-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                full_name: document.getElementById('profile-name').value.trim(),
+                dob: document.getElementById('profile-dob').value,
+                email: document.getElementById('profile-email').value.trim(),
+                phone: document.getElementById('profile-phone').value.trim(),
+            };
+            try {
+                await Portal.api('/employee/profile', { method: 'PUT', body: JSON.stringify(data) });
+                alert('Profile saved');
+            } catch (err) { alert(err.message || 'Failed to save'); }
+        });
+
+        document.getElementById('save-availability').addEventListener('click', async () => {
+            const text = document.getElementById('availability-input').value.trim();
+            try {
+                await Portal.api('/employee/profile', { method: 'PUT', body: JSON.stringify({ availability: text }) });
+                alert('Availability saved');
+            } catch (err) { alert(err.message || 'Failed to save'); }
+        });
+
+        loadOverview();
+    </script>
+</body>
+</html>

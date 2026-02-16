@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Password - CJ Car Detailing</title>
+    <link rel="icon" type="image/png" href="../images/favicon.png">
+    <link rel="stylesheet" href="../styles.css">
+    <link rel="stylesheet" href="portal.css">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="portal-container" style="max-width: 420px; margin-top: 15vh;">
+        <div class="portal-card">
+            <h1 style="margin-bottom: 8px; font-size: 1.5rem;">Reset Password</h1>
+            <p style="color: var(--text-muted); margin-bottom: 24px;">Enter your new password below.</p>
+            <form id="reset-form">
+                <input type="hidden" id="token" value="">
+                <label style="display: block; margin-bottom: 8px;">New Password (min 8 characters)</label>
+                <input type="password" id="new-password" required minlength="8" style="width: 100%; margin-bottom: 16px;">
+                <label style="display: block; margin-bottom: 8px;">Confirm Password</label>
+                <input type="password" id="confirm-password" required minlength="8" style="width: 100%; margin-bottom: 24px;">
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Reset Password</button>
+            </form>
+            <p id="reset-message" style="display: none; margin-top: 16px;"></p>
+            <a href="index.html" style="display: block; margin-top: 24px; color: var(--text-muted); font-size: 0.9rem;">Back to Login</a>
+        </div>
+    </div>
+
+    <script src="portal.js"></script>
+    <script>
+        const params = new URLSearchParams(location.search);
+        const token = params.get('token');
+        if (!token) {
+            document.getElementById('reset-form').style.display = 'none';
+            document.getElementById('reset-message').style.display = 'block';
+            document.getElementById('reset-message').textContent = 'Invalid or missing reset link.';
+            document.getElementById('reset-message').style.color = '#e55';
+        } else {
+            document.getElementById('token').value = token;
+        }
+
+        document.getElementById('reset-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newPwd = document.getElementById('new-password').value;
+            const confirm = document.getElementById('confirm-password').value;
+            if (newPwd !== confirm) {
+                alert('Passwords do not match');
+                return;
+            }
+            try {
+                const res = await fetch(Portal.API + '/reset-password/confirm', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token, newPassword: newPwd }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed');
+                document.getElementById('reset-form').style.display = 'none';
+                document.getElementById('reset-message').style.display = 'block';
+                document.getElementById('reset-message').textContent = 'Password reset successfully. You can now log in.';
+                document.getElementById('reset-message').style.color = 'var(--accent)';
+            } catch (err) {
+                alert(err.message || 'Invalid or expired reset link.');
+            }
+        });
+    </script>
+</body>
+</html>
