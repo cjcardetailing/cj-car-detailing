@@ -143,7 +143,7 @@
           <div class="portal-row" style="margin-top:10px; flex-wrap: wrap;">
             <input id="cust_name" placeholder="Full name">
             <input id="cust_phone" placeholder="Phone number">
-            <input id="cust_lastwash" placeholder="Time since last wash (e.g. 2 weeks)">
+            <input id="cust_lastwash_date" type="date" title="Last wash date">
             <select id="cust_type">
               <option value="NORMAL">Normal customer</option>
               <option value="REGULAR">Regular customer</option>
@@ -401,6 +401,18 @@
   async function postJSON(url, body){
     const r = await fetch(url,{
       method:"POST",
+      headers:{"content-type":"application/json"},
+      body:JSON.stringify(body||{}),
+      credentials:"include"
+    });
+    const t = await r.text();
+    let j=null; try{j=JSON.parse(t)}catch{}
+    if(!r.ok) throw new Error(j?.error || t);
+    return j;
+  }
+  async function putJSON(url, body){
+    const r = await fetch(url,{
+      method:"PUT",
       headers:{"content-type":"application/json"},
       body:JSON.stringify(body||{}),
       credentials:"include"
@@ -880,14 +892,33 @@
               <span class="customer-type-pill ${escapeHtml(type)}">${typeLabel}</span>
             </div>
             <p class="customer-card-line"><b>Phone:</b> ${escapeHtml(c.phone_number || "")}</p>
+            <p class="customer-card-line"><b>Last wash:</b> ${escapeHtml(toDMYFromISO(c.last_wash_date || ""))}</p>
             <p class="customer-card-line"><b>Time since last wash:</b> ${escapeHtml(c.time_since_last_wash || "")}</p>
             <p class="customer-card-line"><b>Lifetime value:</b> ${aud(Number(c.lifetime_value_cents || 0))}</p>
             <div class="customer-card-actions">
               <a href="tel:${escapeHtml(normalizePhoneForTel(c.phone_number))}" class="btn btn-secondary">Call Customer</a>
+              <button class="secondary mark-washed" data-id="${Number(c.id || 0)}">Mark Washed Today</button>
             </div>
           </div>
         `;
       }).join("");
+      wrap.querySelectorAll(".mark-washed").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const id = Number(btn.dataset.id || 0);
+          if (!id) return;
+          btn.disabled = true;
+          try {
+            await putJSON("/api/portal/manager/customers", {
+              id,
+              last_wash_date: todayISODate(),
+            });
+            await loadCustomers();
+          } catch (e) {
+            alert(String(e.message || e));
+            btn.disabled = false;
+          }
+        });
+      });
     } catch (e) {
       wrap.innerHTML = `<div class="portal-card" style="margin:0;">Could not load customers.</div>`;
     }
@@ -1017,7 +1048,7 @@
       const body = {
         full_name: $("cust_name").value.trim(),
         phone_number: $("cust_phone").value.trim(),
-        time_since_last_wash: $("cust_lastwash").value.trim(),
+        last_wash_date: $("cust_lastwash_date").value || todayISODate(),
         customer_type: $("cust_type").value,
         lifetime_value: $("cust_ltv").value.trim() || "0",
       };
@@ -1025,7 +1056,7 @@
       $("cust_msg").textContent = "Customer added ✅";
       $("cust_name").value = "";
       $("cust_phone").value = "";
-      $("cust_lastwash").value = "";
+      $("cust_lastwash_date").value = todayISODate();
       $("cust_type").value = "NORMAL";
       $("cust_ltv").value = "";
       await loadCustomers();
@@ -1201,6 +1232,7 @@
     await ensureManager();
     $("cbExpenseDate").value = todayISODate();
     await loadSummary();
+    $("cust_lastwash_date").value = todayISODate();
     await loadPayrollDueWidget($("pdPeriod").value || "week");
     await loadCashbookWidget($("cbPeriod").value || "week");
     await loadBookings();
