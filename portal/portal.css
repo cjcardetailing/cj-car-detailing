@@ -10,9 +10,9 @@ body.portal-page {
   --portal-bg-elevated: #f0ede8;
   --portal-border: rgba(0, 0, 0, 0.08);
   --portal-border-hover: rgba(0, 0, 0, 0.14);
-  --portal-text: #1a1814;
-  --portal-muted: #5c564d;
-  --portal-muted2: #8a8580;
+  --portal-text: #000000;
+  --portal-muted: #1a1814;
+  --portal-muted2: #1a1814;
   --portal-accent: #c9a227;
   --portal-accent-hover: #b8921f;
   --portal-accent-muted: rgba(201, 162, 39, 0.15);
@@ -328,7 +328,7 @@ tbody tr:hover {
   align-items: center;
   justify-content: center;
   height: 200px;
-  color: var(--portal-muted2);
+  color: var(--portal-text);
   font-size: 14px;
 }
 

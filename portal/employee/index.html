@@ -175,7 +175,7 @@
     ctx.clearRect(0, 0, W + padL + padR, H);
 
     if (!dataPoints || dataPoints.length === 0) {
-      ctx.fillStyle = "#8a8580";
+      ctx.fillStyle = "#000000";
       ctx.font = "14px 'DM Sans', sans-serif";
       ctx.textAlign = "center";
       ctx.fillText("No completed jobs yet", padL + chartW/2, H/2);
@@ -198,7 +198,7 @@
       ctx.stroke();
     }
 
-    ctx.fillStyle = "#8a8580";
+    ctx.fillStyle = "#000000";
     ctx.font = "11px 'DM Sans', sans-serif";
     ctx.textAlign = "right";
     for (let i = 0; i <= 4; i++) {
@@ -229,7 +229,7 @@
       const dt = new Date(d.date);
       return isNaN(dt.getTime()) ? "" : dt.toLocaleDateString("en-AU", { day:"2-digit", month:"short", year:"2-digit" });
     });
-    ctx.fillStyle = "#5c564d";
+    ctx.fillStyle = "#000000";
     ctx.font = "10px 'DM Sans', sans-serif";
     ctx.textAlign = "center";
     const step = Math.max(1, Math.floor(dateLabels.length / 6));
