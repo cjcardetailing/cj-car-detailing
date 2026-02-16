@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>CJ Portal – Manager</title>
+  <link rel="icon" href="/favicon.png"/>
+  <link rel="stylesheet" href="/styles.css"/>
+  <style>
+    .wrap{min-height:100vh;padding:18px}
+    .top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+    .card{background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:14px;margin-bottom:14px}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px;border-bottom:1px solid rgba(255,255,255,.10);font-size:13px;text-align:left;vertical-align:top}
+    select,input,button{border-radius:10px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.35);color:#fff;padding:8px}
+    button{cursor:pointer}
+    .muted{opacity:.8;font-size:12px}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h2 style="margin:0;">Manager Dashboard</h2>
+      <div class="muted">Assign bookings to employees and run payroll.</div>
+    </div>
+    <button id="logoutBtn">Logout</button>
+  </div>
+
+  <div class="card">
+    <h3 style="margin:0 0 10px;">Upcoming bookings</h3>
+    <div class="muted" id="status">Loading…</div>
+    <div style="overflow:auto;margin-top:10px;">
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th>When</th>
+            <th>Booking</th>
+            <th>Cars</th>
+            <th>Total</th>
+            <th>Assign to</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin:0 0 10px;">Payroll</h3>
+    <div class="muted">Enter date range (YYYY-MM-DD) and generate employee totals.</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;">
+      <input id="from" placeholder="2026-02-01" />
+      <input id="to" placeholder="2026-03-01" />
+      <button id="payrollBtn">Generate</button>
+    </div>
+    <pre id="payrollOut" style="white-space:pre-wrap;margin-top:10px;"></pre>
+  </div>
+</div>
+
+<script>
+  async function getJSON(url){
+    const r = await fetch(url, {credentials:"include"});
+    if(!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+  async function postJSON(url, body){
+    const r = await fetch(url, {
+      method:"POST",
+      headers:{"content-type":"application/json"},
+      body:JSON.stringify(body||{}),
+      credentials:"include"
+    });
+    const t = await r.text();
+    let j=null; try{j=JSON.parse(t)}catch{}
+    if(!r.ok) throw new Error(j?.error || t);
+    return j;
+  }
+  function aud(cents){return (cents/100).toLocaleString("en-AU",{style:"currency",currency:"AUD"});}
+
+  async function loadEmployees(){
+    // quick list from DB for dropdown (simple inline endpoint using SQL here would be better later)
+    // For now, fetch from payroll endpoint with a wide range is messy, so we’ll create a tiny list endpoint next.
+    return [];
+  }
+
+  async function ensureManager(){
+    const me = await getJSON("/api/portal/me");
+    if(me?.user?.role!=="MANAGER") location.href="/portal/";
+  }
+
+  async function loadBookings(){
+    const data = await getJSON("/api/portal/manager/bookings?mode=upcoming&limit=50");
+    const tbody = document.querySelector("#tbl tbody");
+    tbody.innerHTML = "";
+
+    // Fetch employees list (temporary simple approach)
+    const emp = await getJSON("/api/portal/manager/employees-basic");
+    const employees = emp.employees || [];
+
+    for(const b of data.bookings){
+      const tr = document.createElement("tr");
+      const when = new Date(b.start_time+"Z");
+      tr.innerHTML = `
+        <td>${when.toLocaleString()}</td>
+        <td><div><b>${b.title||""}</b></div><div class="muted">${b.location||""}</div></td>
+        <td>${b.cars_count}</td>
+        <td>${aud(b.total_price_cents)}</td>
+        <td></td>
+        <td><button>Assign</button></td>
+      `;
+      const sel = document.createElement("select");
+      sel.innerHTML = `<option value="">Select…</option>` + employees.map(e => `<option value="${e.id}">${e.username} — ${e.full_name||e.email}</option>`).join("");
+      tr.children[4].appendChild(sel);
+
+      tr.querySelector("button").addEventListener("click", async () => {
+        const id = sel.value;
+        if(!id) return alert("Pick an employee");
+        await postJSON("/api/portal/manager/assign-booking", { booking_id: b.id, employee_user_id: Number(id) });
+        alert("Assigned!");
+      });
+
+      tbody.appendChild(tr);
+    }
+
+    document.getElementById("status").textContent = `Loaded ${data.bookings.length} bookings`;
+  }
+
+  document.getElementById("logoutBtn").addEventListener("click", async ()=>{
+    await fetch("/api/portal/logout", {method:"POST", credentials:"include"});
+    location.href="/portal/";
+  });
+
+  document.getElementById("payrollBtn").addEventListener("click", async ()=>{
+    const from = document.getElementById("from").value.trim();
+    const to = document.getElementById("to").value.trim();
+    const j = await getJSON(`/api/portal/manager/payroll?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+    document.getElementById("payrollOut").textContent = JSON.stringify(j, null, 2);
+  });
+
+  (async ()=>{
+    await ensureManager();
+    await loadBookings();
+  })();
+</script>
+</body>
+</html>
