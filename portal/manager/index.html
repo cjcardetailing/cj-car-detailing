@@ -24,11 +24,13 @@
       </div>
 
       <div class="portal-nav">
-        <button data-tab="dash" class="active"><span class="nav-icon">🏠</span>Dashboard</button>
-        <button data-tab="bookings"><span class="nav-icon">📅</span>Bookings</button>
-        <button data-tab="employees"><span class="nav-icon">👥</span>Employees</button>
-        <button data-tab="payroll"><span class="nav-icon">💸</span>Payroll</button>
-        <button data-tab="manualpay"><span class="nav-icon">🧾</span>Manual Pay</button>
+        <button data-tab="dash" class="active">Dashboard</button>
+        <button data-tab="bookings">Bookings</button>
+        <button data-tab="employees">Employees</button>
+        <button data-tab="payroll">Payroll</button>
+        <button data-tab="payrolldue">Payroll Due</button>
+        <button data-tab="cashbook">Cashbook</button>
+        <button data-tab="manualpay">Manual Pay</button>
       </div>
 
       <div style="margin-top:14px;">
@@ -61,111 +63,15 @@
           </div>
         </div>
 
-        <div class="dashboard-two-col">
-          <div class="dash-left-col">
-            <div class="kpi-grid" id="kpiGrid"></div>
+        <div class="portal-grid" id="totalsGrid"></div>
 
-            <div class="portal-card dash-chart-card">
-              <div class="k">Your earnings over time</div>
-              <div class="chart-container" id="revChartWrap">
-                <div class="chart-tooltip" id="revTooltip"></div>
-                <canvas id="revChart"></canvas>
-              </div>
-              <div class="small">Your cumulative earnings from completed bookings for the selected period.</div>
-            </div>
+        <div class="portal-card" style="margin-top:12px;">
+          <div class="k">Your earnings over time</div>
+          <div class="chart-container" id="revChartWrap">
+            <div class="chart-tooltip" id="revTooltip"></div>
+            <canvas id="revChart"></canvas>
           </div>
-
-          <div class="dash-right-col">
-            <div class="portal-card widget-card" style="margin:0;">
-              <div class="portal-row" style="justify-content:space-between;align-items:flex-start;">
-                <div>
-                  <b>Actionable Payroll Due</b>
-                  <div class="small">Mark unpaid payroll items as paid, with audit trail.</div>
-                </div>
-              </div>
-              <div class="payroll-due-meta">
-                <div><span class="k">Next payroll date</span><div class="v2" id="payrollNextDate">Not set</div></div>
-                <div><span class="k">Total wages owed</span><div class="v2" id="payrollDueTotal">$0.00</div></div>
-              </div>
-              <div style="overflow:auto;margin-top:10px;">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Employee</th>
-                      <th>Unpaid</th>
-                      <th>Jobs</th>
-                      <th>Status</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody id="payrollDueRows"></tbody>
-                </table>
-              </div>
-            </div>
-
-            <div class="portal-card widget-card" style="margin-top:12px;">
-              <b>Today / This week operations</b>
-              <div class="small" id="opsSubline">Today&apos;s bookings and attention counters.</div>
-              <div class="ops-badges" id="opsBadges"></div>
-              <div class="ops-list" id="opsList"></div>
-            </div>
-
-            <div class="portal-card widget-card" style="margin-top:12px;">
-              <b>Cashbook</b>
-              <div class="small">Track cash payments and expenses for accurate profit.</div>
-
-              <div class="cashbook-actions">
-                <div class="portal-card mini-form">
-                  <div class="k">Add cash payment</div>
-                  <div class="portal-row" style="margin-top:8px;">
-                    <input id="cbCashAmount" type="number" min="0.01" step="0.01" placeholder="Amount (AUD)">
-                    <input id="cbCashDate" type="date">
-                  </div>
-                  <div class="portal-row" style="margin-top:8px;">
-                    <input id="cbCashBooking" type="number" min="1" step="1" placeholder="Linked booking ID (optional)">
-                    <input id="cbCashNote" type="text" placeholder="Note (optional)">
-                  </div>
-                  <button id="cbCashBtn" style="margin-top:8px;">Add cash payment</button>
-                </div>
-
-                <div class="portal-card mini-form">
-                  <div class="k">Add expense</div>
-                  <div class="portal-row" style="margin-top:8px;">
-                    <input id="cbExpenseAmount" type="number" min="0.01" step="0.01" placeholder="Amount (AUD)">
-                    <select id="cbExpenseCategory">
-                      <option value="Materials">Materials</option>
-                      <option value="Fuel">Fuel</option>
-                      <option value="Supplies">Supplies</option>
-                      <option value="Other">Other</option>
-                    </select>
-                    <input id="cbExpenseDate" type="date">
-                  </div>
-                  <div class="portal-row" style="margin-top:8px;">
-                    <input id="cbExpenseNote" type="text" placeholder="Note (optional)">
-                    <button id="cbExpenseBtn">Add expense</button>
-                  </div>
-                </div>
-              </div>
-
-              <div class="small" id="cashbookSummaryLine" style="margin-top:10px;">Cash collected: $0.00 • Expenses: $0.00</div>
-              <div style="overflow:auto;margin-top:8px;">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Type</th>
-                      <th>Date</th>
-                      <th>Amount</th>
-                      <th>Category</th>
-                      <th>Note</th>
-                      <th>Linked booking</th>
-                    </tr>
-                  </thead>
-                  <tbody id="cashbookRows"></tbody>
-                </table>
-              </div>
-              <div class="small" id="cashbookMsg"></div>
-            </div>
-          </div>
+          <div class="small">Your cumulative earnings from completed bookings for the selected period.</div>
         </div>
       </section>
 
@@ -265,6 +171,96 @@
         </div>
       </section>
 
+      <!-- PAYROLL DUE -->
+      <section id="tab-payrolldue" class="portal-card hidden">
+        <div class="portal-row" style="justify-content:space-between;align-items:flex-start;">
+          <div>
+            <b>Actionable Payroll Due</b>
+            <div class="small">Mark unpaid payroll items as paid.</div>
+          </div>
+          <div class="portal-row">
+            <label class="k" for="pdPeriod" style="margin:0;">Period</label>
+            <select id="pdPeriod">
+              <option value="week">This week</option>
+              <option value="month">This month</option>
+              <option value="year">This year</option>
+            </select>
+          </div>
+        </div>
+        <div class="payroll-due-meta">
+          <div><span class="k">Next payroll date</span><div class="v2" id="payrollNextDate">Not set</div></div>
+          <div><span class="k">Total wages owed</span><div class="v2" id="payrollDueTotal">$0.00</div></div>
+        </div>
+        <div style="overflow:auto;margin-top:10px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Unpaid</th>
+                <th>Jobs</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="payrollDueRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- CASHBOOK -->
+      <section id="tab-cashbook" class="portal-card hidden">
+        <div class="portal-row" style="justify-content:space-between;align-items:flex-start;">
+          <div>
+            <b>Cashbook</b>
+            <div class="small">Track expenses for accurate profit reporting.</div>
+          </div>
+          <div class="portal-row">
+            <label class="k" for="cbPeriod" style="margin:0;">Period</label>
+            <select id="cbPeriod">
+              <option value="week">This week</option>
+              <option value="month">This month</option>
+              <option value="year">This year</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="portal-card mini-form" style="margin-top:10px;">
+          <div class="k">Add expense</div>
+          <div class="portal-row" style="margin-top:8px;">
+            <input id="cbExpenseAmount" type="number" min="0.01" step="0.01" placeholder="Amount (AUD)">
+            <select id="cbExpenseCategory">
+              <option value="Materials">Materials</option>
+              <option value="Fuel">Fuel</option>
+              <option value="Supplies">Supplies</option>
+              <option value="Other">Other</option>
+            </select>
+            <input id="cbExpenseDate" type="date">
+          </div>
+          <div class="portal-row" style="margin-top:8px;">
+            <input id="cbExpenseNote" type="text" placeholder="Note (optional)">
+            <button id="cbExpenseBtn">Add expense</button>
+          </div>
+        </div>
+
+        <div class="small" id="cashbookSummaryLine" style="margin-top:10px;">Expenses: $0.00</div>
+        <div style="overflow:auto;margin-top:8px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Category</th>
+                <th>Note</th>
+                <th>Linked booking</th>
+              </tr>
+            </thead>
+            <tbody id="cashbookRows"></tbody>
+          </table>
+        </div>
+        <div class="small" id="cashbookMsg"></div>
+      </section>
+
       <!-- MANUAL PAY -->
       <section id="tab-manualpay" class="portal-card hidden">
         <b>Manual Pay Entry</b>
@@ -318,8 +314,9 @@
 
 <script>
   const $ = (id)=>document.getElementById(id);
-  const tabs = ["dash","bookings","employees","payroll","manualpay"];
+  const tabs = ["dash","bookings","employees","payroll","payrolldue","cashbook","manualpay"];
   const PERIOD_LABELS = { week: "This week", month: "This month", year: "This year" };
+  let summaryCache = null;
 
   function aud(c){ return (c/100).toLocaleString("en-AU",{style:"currency",currency:"AUD"}); }
 
@@ -387,6 +384,14 @@
     for(const t of tabs){
       document.querySelector(`[data-tab="${t}"]`).classList.toggle("active", t===name);
       document.getElementById(`tab-${t}`).classList.toggle("hidden", t!==name);
+    }
+    if (name === "payrolldue") {
+      loadPayrollDueWidget($("pdPeriod").value || "week").catch(()=>{});
+    } else if (name === "cashbook") {
+      loadCashbookWidget($("cbPeriod").value || "week").catch(()=>{});
+    } else if (name === "dash") {
+      renderSummary();
+      renderChart().catch(()=>{});
     }
   }
   document.querySelectorAll(".portal-nav button").forEach(b=>{
@@ -517,84 +522,35 @@
   }
 
   async function loadSummary(){
-    const period = $("dashPeriod").value || "week";
-    await Promise.all([
-      loadKpiCards(period),
-      loadPayrollDueWidget(period),
-      loadOperationsWidget(period),
-      loadCashbookWidget(period),
-      renderChart(period),
-    ]);
+    const s = await getJSON("/api/portal/manager/summary");
+    summaryCache = s;
+    renderSummary();
+    await renderChart();
   }
 
-  function renderKpiCards(data){
+  function renderSummary(){
+    if (!summaryCache) return;
     const period = $("dashPeriod").value || "week";
-    const grid = $("kpiGrid");
+    const grid = $("totalsGrid");
     grid.innerHTML = "";
+    const v = summaryCache[period] || { manager_each_fmt: aud(0), jobs: 0, total_fmt: aud(0), employee_fmt: aud(0) };
     const label = PERIOD_LABELS[period] || "Selected";
-    const k = data?.kpis || {};
-    const c = data?.cashbook || {};
-    const cards = [
-      {
-        icon: "💰",
-        title: "Revenue",
-        value: k.revenue_fmt || aud(0),
-        sub: `${label} completed revenue`,
-      },
-      {
-        icon: "📈",
-        title: "Profit (estimated)",
-        value: k.profit_fmt || aud(0),
-        sub: `Revenue − wages − expenses`,
-      },
-      {
-        icon: "🧑‍🔧",
-        title: "Wages owed",
-        value: k.wages_owed_fmt || aud(0),
-        sub: `Unpaid payroll total`,
-      },
-      {
-        icon: "✅",
-        title: "Jobs completed",
-        value: String(Number(k.jobs_completed || 0)),
-        sub: `${label} completed jobs`,
-      },
-      {
-        icon: "🧾",
-        title: "Average ticket",
-        value: k.average_ticket_fmt || aud(0),
-        sub: `Revenue per completed job`,
-      },
-      {
-        icon: "🏦",
-        title: "Expenses",
-        value: c.expenses_fmt || aud(0),
-        sub: `${label} cashbook expenses`,
-      },
-    ];
 
-    for (const card of cards) {
-      const div = document.createElement("div");
-      div.className = "portal-card kpi-card";
-      div.style.margin = "0";
-      div.innerHTML = `
-        <div class="kpi-top">
-          <span class="kpi-ic">${card.icon}</span>
-          <div class="k">${card.title}</div>
-        </div>
-        <div class="v">${card.value}</div>
-        <div class="small">${card.sub}</div>
-      `;
-      grid.appendChild(div);
-    }
+    const div = document.createElement("div");
+    div.className = "portal-card";
+    div.style.margin = "0";
+    div.style.borderColor = "var(--portal-accent)";
+    div.style.gridColumn = "1 / -1";
+    div.innerHTML = `
+      <div class="k">${label}</div>
+      <div class="v">${v.manager_each_fmt}</div>
+      <div class="small">Jobs: <b>${v.jobs}</b> • Gross: <b>${v.total_fmt}</b> • Employee wages: <b>${v.employee_fmt}</b></div>
+    `;
+    grid.appendChild(div);
   }
 
-  async function loadKpiCards(period){
-    const s = await getJSON(`/api/portal/manager/dashboard-kpis?period=${encodeURIComponent(period)}`);
-    renderKpiCards(s);
-  }
-
-  async function renderChart(period){
+  async function renderChart(periodArg){
+    const period = periodArg || $("dashPeriod").value || "week";
     const hist = await getJSON(`/api/portal/manager/revenue-history?period=${encodeURIComponent(period)}`);
     let cum = 0;
     const raw = (hist.entries || []).map(e => {
@@ -616,7 +572,7 @@
 
     const tbody = $("payrollDueRows");
     tbody.innerHTML = "";
-    const rows = j.employees || [];
+    const rows = (j.employees || []).filter((e) => Number(e.unpaid_amount_cents || 0) > 0);
     if (!rows.length) {
       const tr = document.createElement("tr");
       tr.innerHTML = `<td colspan="5">No unpaid payroll items for this period.</td>`;
@@ -627,23 +583,21 @@
     for (const e of rows) {
       const tr = document.createElement("tr");
       const name = e.full_name || e.username || `Employee #${e.employee_user_id}`;
-      const isUnpaid = Number(e.unpaid_amount_cents || 0) > 0;
       tr.innerHTML = `
         <td><b>${escapeHtml(name)}</b><div class="small">${escapeHtml(e.username || "")}</div></td>
         <td><b>${escapeHtml(e.unpaid_amount_fmt || aud(0))}</b></td>
         <td>${Number(e.unpaid_jobs || 0)}</td>
-        <td><span class="status-pill ${isUnpaid ? "pill-unpaid" : "pill-paid"}">${isUnpaid ? "Unpaid" : "Paid"}</span></td>
+        <td><span class="status-pill pill-unpaid">Unpaid</span></td>
         <td></td>
       `;
       const btn = document.createElement("button");
       btn.textContent = "Mark as paid";
-      btn.className = isUnpaid ? "" : "secondary";
-      btn.disabled = !isUnpaid;
       btn.addEventListener("click", async ()=>{
         if (!confirm(`Mark all unpaid items as paid for ${name}?`)) return;
         btn.disabled = true;
         try {
           await postJSON("/api/portal/manager/payroll-mark-paid", { employee_user_id: Number(e.employee_user_id) });
+          await loadPayrollDueWidget($("pdPeriod").value || "week");
           await loadSummary();
         } catch (err) {
           alert(String(err.message || err));
@@ -655,62 +609,13 @@
     }
   }
 
-  async function loadOperationsWidget(period){
-    const j = await getJSON(`/api/portal/manager/operations?period=${encodeURIComponent(period)}`);
-    const badges = $("opsBadges");
-    badges.innerHTML = "";
-
-    const badgeData = [
-      { label: "Unassigned jobs", value: Number(j?.counters?.unassigned_jobs || 0) },
-      { label: "Late jobs", value: Number(j?.counters?.late_jobs || 0) },
-    ];
-    for (const b of badgeData) {
-      const item = document.createElement("div");
-      item.className = `ops-badge ${b.value > 0 ? "warn" : ""}`;
-      item.innerHTML = `<span>${escapeHtml(b.label)}</span><b>${b.value}</b>`;
-      badges.appendChild(item);
-    }
-
-    $("opsSubline").textContent = j.using_upcoming_fallback
-      ? "No bookings today. Showing next 5 upcoming bookings."
-      : "Today's bookings list.";
-
-    const list = $("opsList");
-    list.innerHTML = "";
-    const rows = j.bookings || [];
-    if (!rows.length) {
-      list.innerHTML = `<div class="small">No bookings found for today.</div>`;
-      return;
-    }
-
-    for (const b of rows) {
-      const row = document.createElement("div");
-      row.className = "ops-item";
-      const when = new Date(b.start_time || "");
-      const whenText = isNaN(when.getTime()) ? (b.start_time || "") : formatDMY(when);
-      const pillClass =
-        b.status === "Completed" ? "pill-paid" :
-        b.status === "Cancelled" ? "pill-cancelled" :
-        b.status === "In progress" ? "pill-progress" : "pill-scheduled";
-      row.innerHTML = `
-        <div class="ops-main">
-          <b>${escapeHtml(whenText)}</b>
-          <div class="small">${escapeHtml(b.customer_name || "Customer")} • ${escapeHtml(b.service_name || "Service")}</div>
-          <div class="small">Assigned: ${escapeHtml(b.assigned_employee || "Unassigned")}</div>
-        </div>
-        <div><span class="status-pill ${pillClass}">${escapeHtml(b.status || "Scheduled")}</span></div>
-      `;
-      list.appendChild(row);
-    }
-  }
-
   async function loadCashbookWidget(period){
     const j = await getJSON(`/api/portal/manager/cashbook?period=${encodeURIComponent(period)}&limit=12`);
-    $("cashbookSummaryLine").textContent = `Cash collected: ${j?.summary?.cash_collected_fmt || aud(0)} • Expenses: ${j?.summary?.expenses_fmt || aud(0)}`;
+    $("cashbookSummaryLine").textContent = `Expenses: ${j?.summary?.expenses_fmt || aud(0)}`;
 
     const tbody = $("cashbookRows");
     tbody.innerHTML = "";
-    const rows = j.entries || [];
+    const rows = (j.entries || []).filter((r)=>String(r.type || "").toLowerCase() === "expense");
     if (!rows.length) {
       const tr = document.createElement("tr");
       tr.innerHTML = `<td colspan="6">No cashbook entries for this period.</td>`;
@@ -722,7 +627,7 @@
       const tr = document.createElement("tr");
       const linkedBooking = r.linked_booking_id ? `#${r.linked_booking_id}` : "—";
       tr.innerHTML = `
-        <td><span class="status-pill ${r.type === "Expense" ? "pill-expense" : "pill-cash"}">${escapeHtml(r.type)}</span></td>
+        <td><span class="status-pill pill-expense">Expense</span></td>
         <td>${escapeHtml(toDMYFromISO(r.date || ""))}</td>
         <td><b>${escapeHtml(r.amount_fmt || aud(0))}</b></td>
         <td>${escapeHtml(r.category || "—")}</td>
@@ -1032,7 +937,16 @@
   });
 
   $("refreshBookings").addEventListener("click", loadBookings);
-  $("dashPeriod").addEventListener("change", ()=>loadSummary().catch((e)=>alert(String(e.message || e))));
+  $("dashPeriod").addEventListener("change", ()=>{
+    renderSummary();
+    renderChart().catch((e)=>alert(String(e.message || e)));
+  });
+  $("pdPeriod").addEventListener("change", ()=>{
+    loadPayrollDueWidget($("pdPeriod").value || "week").catch((e)=>alert(String(e.message || e)));
+  });
+  $("cbPeriod").addEventListener("change", ()=>{
+    loadCashbookWidget($("cbPeriod").value || "week").catch((e)=>alert(String(e.message || e)));
+  });
 
   function getPayrollParams(){
     const period = $("p_period").value || "week_sunday";
@@ -1154,30 +1068,6 @@
 
   $("mp_refresh").addEventListener("click", loadManualPayHistory);
 
-  $("cbCashBtn").addEventListener("click", async ()=>{
-    $("cashbookMsg").textContent = "";
-    try {
-      const amount = $("cbCashAmount").value.trim();
-      const date = $("cbCashDate").value || todayISODate();
-      const linked = $("cbCashBooking").value.trim();
-      const note = $("cbCashNote").value.trim();
-      await postJSON("/api/portal/manager/cashbook", {
-        type: "CASH",
-        amount,
-        date,
-        linked_booking_id: linked ? Number(linked) : null,
-        note,
-      });
-      $("cbCashAmount").value = "";
-      $("cbCashBooking").value = "";
-      $("cbCashNote").value = "";
-      $("cashbookMsg").textContent = "Cash payment entry added.";
-      await loadSummary();
-    } catch (e) {
-      $("cashbookMsg").textContent = String(e.message || e);
-    }
-  });
-
   $("cbExpenseBtn").addEventListener("click", async ()=>{
     $("cashbookMsg").textContent = "";
     try {
@@ -1195,6 +1085,7 @@
       $("cbExpenseAmount").value = "";
       $("cbExpenseNote").value = "";
       $("cashbookMsg").textContent = "Expense entry added.";
+      await loadCashbookWidget($("cbPeriod").value || "week");
       await loadSummary();
     } catch (e) {
       $("cashbookMsg").textContent = String(e.message || e);
@@ -1208,9 +1099,10 @@
 
   (async ()=>{
     await ensureManager();
-    $("cbCashDate").value = todayISODate();
     $("cbExpenseDate").value = todayISODate();
     await loadSummary();
+    await loadPayrollDueWidget($("pdPeriod").value || "week");
+    await loadCashbookWidget($("cbPeriod").value || "week");
     await loadBookings();
     await loadEmployees();
     await loadPayrollTargets();

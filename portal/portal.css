@@ -122,12 +122,6 @@ body {
   gap: 8px;
 }
 
-.nav-icon {
-  width: 18px;
-  display: inline-block;
-  text-align: center;
-}
-
 .portal-nav button:hover {
   background: var(--portal-accent-muted);
   color: var(--portal-text);
@@ -216,56 +210,6 @@ body {
   gap: 16px;
 }
 
-.dashboard-two-col {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr);
-  gap: 14px;
-  align-items: start;
-}
-
-.dash-left-col,
-.dash-right-col {
-  min-width: 0;
-}
-
-.kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.kpi-card {
-  background: #fff;
-  border-color: rgba(201, 162, 39, 0.28);
-}
-
-.kpi-top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.kpi-ic {
-  width: 26px;
-  height: 26px;
-  border-radius: 999px;
-  background: rgba(201, 162, 39, 0.16);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-}
-
-.dash-chart-card {
-  margin-top: 12px;
-  margin-bottom: 0;
-}
-
-.widget-card {
-  background: #fff;
-  border-color: rgba(201, 162, 39, 0.26);
-}
-
 .payroll-due-meta {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -298,89 +242,10 @@ body {
   border-color: rgba(181, 87, 27, 0.24);
 }
 
-.pill-paid {
-  background: rgba(39, 131, 66, 0.12);
-  color: #1f6b38;
-  border-color: rgba(39, 131, 66, 0.26);
-}
-
-.pill-progress {
-  background: rgba(37, 100, 185, 0.11);
-  color: #1e5aab;
-  border-color: rgba(37, 100, 185, 0.28);
-}
-
-.pill-scheduled {
-  background: rgba(94, 83, 68, 0.12);
-  color: #4e4539;
-  border-color: rgba(94, 83, 68, 0.2);
-}
-
-.pill-cancelled {
-  background: rgba(151, 56, 56, 0.12);
-  color: #8a2f2f;
-  border-color: rgba(151, 56, 56, 0.22);
-}
-
 .pill-expense {
   background: rgba(151, 56, 56, 0.08);
   color: #8a2f2f;
   border-color: rgba(151, 56, 56, 0.2);
-}
-
-.pill-cash {
-  background: rgba(39, 131, 66, 0.1);
-  color: #1f6b38;
-  border-color: rgba(39, 131, 66, 0.24);
-}
-
-.ops-badges {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.ops-badge {
-  border: 1px solid var(--portal-border);
-  border-radius: 9px;
-  padding: 8px 10px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #faf8f4;
-  font-size: 12px;
-}
-
-.ops-badge.warn {
-  border-color: rgba(181, 87, 27, 0.28);
-  background: rgba(181, 87, 27, 0.08);
-}
-
-.ops-list {
-  margin-top: 10px;
-  display: grid;
-  gap: 8px;
-}
-
-.ops-item {
-  border: 1px solid var(--portal-border);
-  border-radius: 9px;
-  background: #fff;
-  padding: 9px 10px;
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.ops-main {
-  min-width: 0;
-}
-
-.cashbook-actions {
-  display: grid;
-  gap: 10px;
-  margin-top: 10px;
 }
 
 .mini-form {
@@ -641,16 +506,8 @@ tbody tr:hover {
     grid-template-columns: 1fr;
   }
 
-  .dashboard-two-col {
-    grid-template-columns: 1fr;
-  }
-
-  .kpi-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .payroll-due-meta,
-  .ops-badges {
+  .portal-grid {
     grid-template-columns: 1fr;
   }
 
