@@ -21,7 +21,8 @@ export async function onRequestGet(context) {
                SELECT SUM(ba.total_price_cents)
                FROM booking_assignments ba
                JOIN bookings b ON b.id = ba.booking_id
-               WHERE ${bookingsWhereSql}
+               WHERE ba.completed_at IS NOT NULL
+                 AND ${bookingsWhereSql}
              ), 0)
            ) AS total_cents,
            (
@@ -29,7 +30,8 @@ export async function onRequestGet(context) {
                SELECT SUM(ba.employee_pay_cents)
                FROM booking_assignments ba
                JOIN bookings b ON b.id = ba.booking_id
-               WHERE ${bookingsWhereSql}
+               WHERE ba.completed_at IS NOT NULL
+                 AND ${bookingsWhereSql}
              ), 0)
              +
              COALESCE((
@@ -43,7 +45,8 @@ export async function onRequestGet(context) {
                SELECT SUM(ba.manager_each_cents)
                FROM booking_assignments ba
                JOIN bookings b ON b.id = ba.booking_id
-               WHERE ${bookingsWhereSql}
+               WHERE ba.completed_at IS NOT NULL
+                 AND ${bookingsWhereSql}
              ), 0)
            ) AS manager_each_cents,
           (
@@ -67,7 +70,8 @@ export async function onRequestGet(context) {
                SELECT COUNT(*)
                FROM booking_assignments ba
                JOIN bookings b ON b.id = ba.booking_id
-               WHERE ${bookingsWhereSql}
+               WHERE ba.completed_at IS NOT NULL
+                 AND ${bookingsWhereSql}
              ), 0)
              +
              COALESCE((
@@ -115,7 +119,8 @@ export async function onRequestGet(context) {
            COALESCE(COUNT(*),0) AS jobs
          FROM booking_assignments ba
          JOIN bookings b ON b.id = ba.booking_id
-         WHERE ${whereSql}`
+         WHERE ba.completed_at IS NOT NULL
+           AND ${whereSql}`
       ).first();
 
     week = await q(`
