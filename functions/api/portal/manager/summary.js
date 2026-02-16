@@ -6,6 +6,7 @@ export async function onRequestGet(context) {
   const { env, request } = context;
   const auth = await requireRole(env, request, "MANAGER");
   if (!auth.ok) return auth.res;
+  const managerUserId = Number(auth.user.id) || 0;
 
   // Use AU localtime for both booking time and "now"
   let week;
@@ -45,6 +46,22 @@ export async function onRequestGet(context) {
                WHERE ${bookingsWhereSql}
              ), 0)
            ) AS manager_each_cents,
+          (
+            COALESCE((
+              SELECT SUM(mpe.pay_cents)
+              FROM manual_pay_entries mpe
+              WHERE ${manualWhereSql}
+                AND mpe.employee_user_id = ${managerUserId}
+            ), 0)
+          ) AS my_manual_cents,
+          (
+            COALESCE((
+              SELECT COUNT(*)
+              FROM manual_pay_entries mpe
+              WHERE ${manualWhereSql}
+                AND mpe.employee_user_id = ${managerUserId}
+            ), 0)
+          ) AS my_manual_jobs,
            (
              COALESCE((
                SELECT COUNT(*)
@@ -80,6 +97,13 @@ export async function onRequestGet(context) {
     `, `
       strftime('%Y', datetime(mpe.job_time,'localtime')) = strftime('%Y','now','localtime')
     `);
+
+    // Dashboard card represents "Your earnings".
+    // Add manual pay rows that were assigned directly to this manager account.
+    for (const bucket of [week, month, year]) {
+      bucket.manager_each_cents = Number(bucket.manager_each_cents || 0) + Number(bucket.my_manual_cents || 0);
+      bucket.jobs = Number(bucket.jobs || 0) + Number(bucket.my_manual_jobs || 0);
+    }
   } catch (err) {
     if (!isManualPayTableMissingError(err)) throw err;
     const q = async (whereSql) =>
