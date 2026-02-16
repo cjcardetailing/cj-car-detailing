@@ -59,32 +59,40 @@ async function hashPasswordPBKDF2(password, iterations = 100000) {
 }
 
 async function verifyPasswordPBKDF2(password, stored) {
-  // stored format: pbkdf2_sha256$<iter>$<saltHex>$<hashHex>
-  const parts = (stored || "").split("$");
-  if (parts.length !== 5 || parts[0] !== "pbkdf2_sha256" || parts[1] !== "") return false;
-
-  const iterations = parseInt(parts[2], 10);
-  const saltHex = parts[3];
-  const expectedHex = parts[4];
-
-  if (!Number.isFinite(iterations) || iterations <= 0) return false;
-
-  const salt = new Uint8Array(saltHex.match(/.{1,2}/g).map((b) => parseInt(b, 16)));
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", salt, iterations, hash: "SHA-256" },
-    key,
-    256
-  );
-  const actualHex = [...new Uint8Array(bits)].map(b => b.toString(16).padStart(2,"0")).join("");
-
-  // timing-safe-ish compare
-  if (actualHex.length !== expectedHex.length) return false;
-  let out = 0;
-  for (let i = 0; i < actualHex.length; i++) out |= actualHex.charCodeAt(i) ^ expectedHex.charCodeAt(i);
-  return out === 0;
-}
+    // stored format: pbkdf2_sha256$<iter>$<saltHex>$<hashHex>
+    const parts = (stored || "").split("$");
+    if (parts.length !== 4) return false;
+    if (parts[0] !== "pbkdf2_sha256") return false;
+  
+    const iterations = parseInt(parts[1], 10);
+    const saltHex = parts[2];
+    const expectedHex = parts[3];
+  
+    if (!Number.isFinite(iterations) || iterations <= 0) return false;
+  
+    const saltPairs = saltHex.match(/.{1,2}/g);
+    if (!saltPairs) return false;
+  
+    const salt = new Uint8Array(saltPairs.map((b) => parseInt(b, 16)));
+  
+    const enc = new TextEncoder();
+    const key = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);
+    const bits = await crypto.subtle.deriveBits(
+      { name: "PBKDF2", salt, iterations, hash: "SHA-256" },
+      key,
+      256
+    );
+  
+    const actualHex = [...new Uint8Array(bits)]
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  
+    // timing-safe-ish compare
+    if (actualHex.length !== expectedHex.length) return false;
+    let out = 0;
+    for (let i = 0; i < actualHex.length; i++) out |= actualHex.charCodeAt(i) ^ expectedHex.charCodeAt(i);
+    return out === 0;
+  }  
 
 async function createSession(env, userId, rememberMe) {
   const raw = randomToken(32);
