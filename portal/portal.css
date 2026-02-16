@@ -501,6 +501,88 @@ tbody tr:hover {
   font-size: 12px;
 }
 
+.customer-add-card {
+  border: 1px solid rgba(201, 162, 39, 0.28);
+  background: linear-gradient(180deg, #f6f2e7 0%, #f0ece6 100%);
+}
+
+.customer-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.customer-form-actions {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.customer-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.customer-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.customer-card-item {
+  background: var(--portal-bg-card);
+  border: 1px solid var(--portal-border);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.customer-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.customer-card-line {
+  margin: 0 0 8px;
+  font-size: 0.92rem;
+  color: var(--portal-text);
+}
+
+.customer-card-actions {
+  margin-top: 10px;
+}
+
+.customer-card-actions .btn {
+  display: inline-block;
+  text-decoration: none;
+}
+
+.customer-type-pill {
+  font-size: 0.72rem;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
+}
+
+.customer-type-pill.regular {
+  color: #1f5e3f;
+  border-color: rgba(48, 129, 89, 0.25);
+  background: rgba(48, 129, 89, 0.14);
+}
+
+.customer-type-pill.normal {
+  color: #7a6123;
+  border-color: rgba(201, 162, 39, 0.35);
+  background: rgba(201, 162, 39, 0.15);
+}
+
 @media (max-width: 900px) {
   .portal-layout {
     grid-template-columns: 1fr;
@@ -513,5 +595,9 @@ tbody tr:hover {
 
   .avail-calendar-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .customer-form-grid {
+    grid-template-columns: 1fr;
   }
 }

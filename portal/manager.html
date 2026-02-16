@@ -28,6 +28,7 @@
                     <li><a href="#revenue" class="nav-tab">Revenue</a></li>
                     <li><a href="#payroll" class="nav-tab">Payroll</a></li>
                     <li><a href="#employees" class="nav-tab">Employees</a></li>
+                    <li><a href="#customers" class="nav-tab">Customers</a></li>
                     <li><a href="#create-employee" class="nav-tab">Create Employee</a></li>
                 </ul>
             </aside>
@@ -103,6 +104,52 @@
                     <h2 style="margin-bottom: 24px;">Employees</h2>
                     <div class="portal-card">
                         <div id="employees-list"></div>
+                    </div>
+                </div>
+
+                <div id="customers-tab" class="tab-content" style="display: none;">
+                    <h2 style="margin-bottom: 24px;">Customers</h2>
+                    <div class="portal-card customer-add-card">
+                        <h3 style="margin-bottom: 12px;">Add Customer</h3>
+                        <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 20px;">Track customer value, wash recency, and contact details in one place.</p>
+                        <form id="create-customer-form">
+                            <div class="customer-form-grid">
+                                <div>
+                                    <label style="display: block; margin-bottom: 8px;">Full Name</label>
+                                    <input type="text" id="customer-full-name" required style="width: 100%;">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 8px;">Phone Number</label>
+                                    <input type="tel" id="customer-phone" required style="width: 100%;">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 8px;">Time since last car wash</label>
+                                    <input type="text" id="customer-last-wash" required style="width: 100%;" placeholder="e.g. 2 weeks">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 8px;">Customer Type</label>
+                                    <select id="customer-type" required style="width: 100%;">
+                                        <option value="NORMAL">Normal customer</option>
+                                        <option value="REGULAR">Regular customer</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 8px;">Total Lifetime Value</label>
+                                    <input type="number" id="customer-lifetime-value" min="0" step="0.01" required style="width: 100%;" placeholder="0.00">
+                                </div>
+                            </div>
+                            <div class="customer-form-actions">
+                                <button type="submit" class="btn btn-primary">Add Customer</button>
+                                <p id="customer-submit-status" style="color: var(--text-muted); font-size: 0.9rem; margin: 0;"></p>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="portal-card">
+                        <div class="customer-list-header">
+                            <h3 style="margin: 0;">Customer Directory</h3>
+                            <button id="refresh-customers" class="btn btn-secondary">Refresh</button>
+                        </div>
+                        <div id="customers-list" class="customer-cards"></div>
                     </div>
                 </div>
 
@@ -236,9 +283,39 @@
             document.getElementById('employees-list').innerHTML = html || '<p style="color: var(--text-muted);">No employees yet</p>';
         }
 
+        function customerTypeLabel(type) {
+            return String(type || '').toUpperCase() === 'REGULAR' ? 'Regular customer' : 'Normal customer';
+        }
+
+        async function loadCustomers() {
+            const wrap = document.getElementById('customers-list');
+            wrap.innerHTML = '<p style="color: var(--text-muted);">Loading customers...</p>';
+            try {
+                const data = await Portal.api('/manager/customers');
+                const html = (data.customers || []).map(c => `
+                    <div class="customer-card-item">
+                        <div class="customer-card-head">
+                            <strong>${c.full_name}</strong>
+                            <span class="customer-type-pill ${String(c.customer_type || '').toLowerCase()}">${customerTypeLabel(c.customer_type)}</span>
+                        </div>
+                        <p class="customer-card-line"><strong>Phone:</strong> ${c.phone_number}</p>
+                        <p class="customer-card-line"><strong>Time since last wash:</strong> ${c.time_since_last_wash}</p>
+                        <p class="customer-card-line"><strong>Lifetime value:</strong> ${Portal.formatCurrency(c.lifetime_value)}</p>
+                        <div class="customer-card-actions">
+                            <a href="tel:${c.phone_number.replace(/[^+\d]/g, '')}" class="btn btn-secondary">Call Customer</a>
+                        </div>
+                    </div>
+                `).join('');
+                wrap.innerHTML = html || '<p style="color: var(--text-muted);">No customers added yet.</p>';
+            } catch (err) {
+                wrap.innerHTML = `<p style="color: #d14a4a;">${err.message || 'Failed to load customers'}</p>`;
+            }
+        }
+
         document.getElementById('revenue-period').addEventListener('change', loadRevenue);
         document.getElementById('payroll-period').addEventListener('change', loadPayroll);
         document.getElementById('refresh-payroll').addEventListener('click', loadPayroll);
+        document.getElementById('refresh-customers').addEventListener('click', loadCustomers);
 
         document.getElementById('emp-dob').addEventListener('change', () => {
             const dob = document.getElementById('emp-dob').value;
@@ -276,7 +353,31 @@
             loadEmployees();
         });
 
+        document.getElementById('create-customer-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const status = document.getElementById('customer-submit-status');
+            status.textContent = 'Saving...';
+            try {
+                await Portal.api('/manager/customers', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        full_name: document.getElementById('customer-full-name').value.trim(),
+                        phone_number: document.getElementById('customer-phone').value.trim(),
+                        time_since_last_wash: document.getElementById('customer-last-wash').value.trim(),
+                        customer_type: document.getElementById('customer-type').value,
+                        lifetime_value: document.getElementById('customer-lifetime-value').value || '0',
+                    }),
+                });
+                document.getElementById('create-customer-form').reset();
+                status.textContent = 'Customer added.';
+                loadCustomers();
+            } catch (err) {
+                status.textContent = err.message || 'Failed to add customer';
+            }
+        });
+
         loadOverview();
+        loadCustomers();
     </script>
 </body>
 </html>
