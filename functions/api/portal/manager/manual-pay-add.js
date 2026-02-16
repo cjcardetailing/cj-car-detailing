@@ -2,6 +2,12 @@ import { requireRole } from "../../../_lib/requireAuth.js";
 import { formatAUD } from "../../../_lib/money.js";
 import { ensureManualPayTable } from "../../../_lib/manualPay.js";
 
+const ALLOWED_JOB_TYPES = new Set([
+  "Full Detail (Inside + Outside)",
+  "Inside Detail",
+  "Outside Detail",
+]);
+
 function parseAmountToCents(value) {
   if (typeof value === "number" && Number.isFinite(value)) {
     if (value < 0) return null;
@@ -51,8 +57,10 @@ export async function onRequestPost(context) {
       headers: { "content-type": "application/json" },
     });
   }
-  if (!jobType || jobType.length > 120) {
-    return new Response(JSON.stringify({ error: "job_type is required (max 120 chars)" }), {
+  if (!ALLOWED_JOB_TYPES.has(jobType)) {
+    return new Response(JSON.stringify({
+      error: "job_type must be one of: Full Detail (Inside + Outside), Inside Detail, Outside Detail",
+    }), {
       status: 400,
       headers: { "content-type": "application/json" },
     });
