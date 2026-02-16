@@ -27,6 +27,7 @@
         <button data-tab="dash" class="active">Dashboard</button>
         <button data-tab="bookings">Bookings</button>
         <button data-tab="employees">Employees</button>
+        <button data-tab="customers">Customers</button>
         <button data-tab="payroll">Payroll</button>
         <button data-tab="payrolldue">Payroll Due</button>
         <button data-tab="cashbook">Cashbook</button>
@@ -130,6 +131,34 @@
             <tbody id="eTbody"></tbody>
           </table>
         </div>
+      </section>
+
+      <!-- CUSTOMERS -->
+      <section id="tab-customers" class="portal-card hidden">
+        <b>Customers</b>
+        <div class="small">Track contact details, wash recency, and lifetime value.</div>
+
+        <div class="portal-card customer-add-card" style="margin-top:12px;">
+          <b>Add customer</b>
+          <div class="portal-row" style="margin-top:10px; flex-wrap: wrap;">
+            <input id="cust_name" placeholder="Full name">
+            <input id="cust_phone" placeholder="Phone number">
+            <input id="cust_lastwash" placeholder="Time since last wash (e.g. 2 weeks)">
+            <select id="cust_type">
+              <option value="NORMAL">Normal customer</option>
+              <option value="REGULAR">Regular customer</option>
+            </select>
+            <input id="cust_ltv" type="number" min="0" step="0.01" placeholder="Lifetime value (AUD)">
+            <button id="cust_create">Add Customer</button>
+          </div>
+          <div class="small" id="cust_msg" style="margin-top:8px;"></div>
+        </div>
+
+        <div class="portal-row" style="justify-content:space-between;">
+          <b>Customer directory</b>
+          <button id="cust_refresh" class="secondary">Refresh</button>
+        </div>
+        <div id="cust_cards" class="customer-cards" style="margin-top:10px;"></div>
       </section>
 
       <!-- PAYROLL -->
@@ -312,7 +341,7 @@
 
 <script>
   const $ = (id)=>document.getElementById(id);
-  const tabs = ["dash","bookings","employees","payroll","payrolldue","cashbook","manualpay"];
+  const tabs = ["dash","bookings","employees","customers","payroll","payrolldue","cashbook","manualpay"];
   const PERIOD_LABELS = { week: "This week", month: "This month", year: "This year" };
   let summaryCache = null;
 
@@ -340,6 +369,10 @@
     const m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (!m) return iso || "";
     return `${m[3]}/${m[2]}/${m[1]}`;
+  }
+
+  function normalizePhoneForTel(phone){
+    return String(phone || "").replace(/[^\d+]/g, "");
   }
 
   function nowForDateTimeLocal(){
@@ -390,6 +423,8 @@
     } else if (name === "dash") {
       renderSummary();
       renderChart().catch(()=>{});
+    } else if (name === "customers") {
+      loadCustomers().catch(()=>{});
     }
   }
   document.querySelectorAll(".portal-nav button").forEach(b=>{
@@ -824,6 +859,40 @@
     }
   }
 
+  async function loadCustomers(){
+    const wrap = $("cust_cards");
+    if (!wrap) return;
+    wrap.innerHTML = `<div class="small">Loading customers...</div>`;
+    try {
+      const j = await getJSON("/api/portal/manager/customers");
+      const rows = j.customers || [];
+      if (!rows.length) {
+        wrap.innerHTML = `<div class="portal-card" style="margin:0;">No customers added yet.</div>`;
+        return;
+      }
+      wrap.innerHTML = rows.map((c)=>{
+        const type = String(c.customer_type || "NORMAL").toLowerCase();
+        const typeLabel = type === "regular" ? "Regular customer" : "Normal customer";
+        return `
+          <div class="customer-card-item">
+            <div class="customer-card-head">
+              <b>${escapeHtml(c.full_name || "")}</b>
+              <span class="customer-type-pill ${escapeHtml(type)}">${typeLabel}</span>
+            </div>
+            <p class="customer-card-line"><b>Phone:</b> ${escapeHtml(c.phone_number || "")}</p>
+            <p class="customer-card-line"><b>Time since last wash:</b> ${escapeHtml(c.time_since_last_wash || "")}</p>
+            <p class="customer-card-line"><b>Lifetime value:</b> ${aud(Number(c.lifetime_value_cents || 0))}</p>
+            <div class="customer-card-actions">
+              <a href="tel:${escapeHtml(normalizePhoneForTel(c.phone_number))}" class="btn btn-secondary">Call Customer</a>
+            </div>
+          </div>
+        `;
+      }).join("");
+    } catch (e) {
+      wrap.innerHTML = `<div class="portal-card" style="margin:0;">Could not load customers.</div>`;
+    }
+  }
+
   function addDays(dt, n){
     const d = new Date(dt);
     d.setDate(d.getDate() + n);
@@ -941,6 +1010,31 @@
       $("createMsg").textContent = String(e.message || e);
     }
   });
+
+  $("cust_create").addEventListener("click", async ()=>{
+    $("cust_msg").textContent = "";
+    try {
+      const body = {
+        full_name: $("cust_name").value.trim(),
+        phone_number: $("cust_phone").value.trim(),
+        time_since_last_wash: $("cust_lastwash").value.trim(),
+        customer_type: $("cust_type").value,
+        lifetime_value: $("cust_ltv").value.trim() || "0",
+      };
+      await postJSON("/api/portal/manager/customers", body);
+      $("cust_msg").textContent = "Customer added ✅";
+      $("cust_name").value = "";
+      $("cust_phone").value = "";
+      $("cust_lastwash").value = "";
+      $("cust_type").value = "NORMAL";
+      $("cust_ltv").value = "";
+      await loadCustomers();
+    } catch (e) {
+      $("cust_msg").textContent = String(e.message || e);
+    }
+  });
+
+  $("cust_refresh").addEventListener("click", loadCustomers);
 
   $("refreshBookings").addEventListener("click", loadBookings);
   $("dashPeriod").addEventListener("change", ()=>{
@@ -1111,6 +1205,7 @@
     await loadCashbookWidget($("cbPeriod").value || "week");
     await loadBookings();
     await loadEmployees();
+    await loadCustomers();
     await loadPayrollTargets();
     $("mp_time").value = nowForDateTimeLocal();
     await loadManualPayHistory();
