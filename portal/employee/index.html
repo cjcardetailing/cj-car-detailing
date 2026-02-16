@@ -145,12 +145,12 @@
 
       <!-- AVAILABILITY -->
       <section id="tab-availability" class="portal-card hidden">
-        <b>Availability (this week)</b>
-        <div class="small">Select a day in the calendar, then add your available times for that day.</div>
+        <b>Availability (recurring weekly)</b>
+        <div class="small">Set your weekly pattern once. It repeats every week until you change it.</div>
         <div class="portal-card" style="margin-top:12px;">
           <div class="portal-row" style="justify-content:space-between;align-items:center;">
-            <div class="k">Week calendar</div>
-            <div class="small" id="availWeekLabel">Loading week…</div>
+            <div class="k">Weekly calendar</div>
+            <div class="small" id="availWeekLabel">Repeats every week</div>
           </div>
           <div id="availCalendar" class="avail-calendar-grid" style="margin-top:10px;"></div>
         </div>
@@ -182,11 +182,10 @@
   const $=(id)=>document.getElementById(id);
   const tabs=["dash","profile","jobs","payroll","availability"];
   const PERIOD_LABELS = { week: "This week", month: "This month", year: "This year" };
+  const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
   const WEEKDAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   let earningsCache = null;
-  let availWeekStartISO = "";
-  let availWeekDates = [];
-  let selectedAvailDay = "";
+  let selectedAvailDay = WEEKDAY_KEYS[0];
   let availByDay = {};
 
   function aud(c){ return (c/100).toLocaleString("en-AU",{style:"currency",currency:"AUD"}); }
@@ -204,35 +203,6 @@
     const m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (!m) return iso || "";
     return `${m[3]}/${m[2]}/${m[1]}`;
-  }
-
-  function addDaysLocal(dt, n){
-    const d = new Date(dt);
-    d.setDate(d.getDate() + n);
-    return d;
-  }
-
-  function toISODateLocal(dt){
-    const y = dt.getFullYear();
-    const m = String(dt.getMonth() + 1).padStart(2, "0");
-    const d = String(dt.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
-  }
-
-  function getMondayISOFromToday(){
-    const d = new Date();
-    d.setHours(0,0,0,0);
-    const dow = d.getDay(); // Sun=0
-    const diff = dow === 0 ? -6 : 1 - dow;
-    d.setDate(d.getDate() + diff);
-    return toISODateLocal(d);
-  }
-
-  function parseISODateLocal(iso){
-    const m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (!m) return null;
-    const dt = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-    return isNaN(dt.getTime()) ? null : dt;
   }
 
   function isValidTimeText(v){
@@ -255,10 +225,21 @@
     return dt.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }).toLowerCase();
   }
 
-  function formatDateHuman(iso){
-    const dt = parseISODateLocal(iso);
-    if (!dt) return iso || "";
-    return dt.toLocaleDateString("en-AU", { weekday: "long", day: "2-digit", month: "short" });
+  function getDayLabelFromKey(dayKey){
+    const idx = WEEKDAY_KEYS.indexOf(dayKey);
+    if (idx < 0) return dayKey || "";
+    const full = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    return full[idx];
+  }
+
+  function getWeekdayKeyFromISO(iso){
+    const m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return "";
+    const dt = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    if (isNaN(dt.getTime())) return "";
+    const jsDay = dt.getDay(); // Sun=0, Mon=1...
+    const map = ["sun","mon","tue","wed","thu","fri","sat"];
+    return map[jsDay] || "";
   }
 
   function normalizeRanges(ranges){
@@ -289,36 +270,35 @@
     });
   }
 
-  function setAvailWeek(weekStartISO){
-    const baseISO = weekStartISO || getMondayISOFromToday();
-    const base = parseISODateLocal(baseISO) || parseISODateLocal(getMondayISOFromToday());
-    availWeekStartISO = toISODateLocal(base);
-    availWeekDates = [];
-    for (let i = 0; i < 7; i++) {
-      availWeekDates.push(toISODateLocal(addDaysLocal(base, i)));
-    }
-    if (!selectedAvailDay || !availWeekDates.includes(selectedAvailDay)) {
-      selectedAvailDay = availWeekDates[0] || "";
-    }
-  }
-
   function initAvailStateFromPayload(payload){
     const map = {};
-    for (const d of availWeekDates) map[d] = [];
-    if (payload && typeof payload === "object" && payload.by_day && typeof payload.by_day === "object") {
+    for (const dayKey of WEEKDAY_KEYS) map[dayKey] = [];
+
+    if (payload && typeof payload === "object" && payload.by_weekday && typeof payload.by_weekday === "object") {
+      for (const [dayKey, ranges] of Object.entries(payload.by_weekday)) {
+        if (!map[dayKey]) continue;
+        map[dayKey] = normalizeRanges(ranges);
+      }
+    } else if (payload && typeof payload === "object" && payload.by_day && typeof payload.by_day === "object") {
+      // Backward compatibility: convert old date-based keys to weekday keys.
       for (const [dayIso, ranges] of Object.entries(payload.by_day)) {
-        if (!map[dayIso]) continue;
-        map[dayIso] = normalizeRanges(ranges);
+        const dayKey = getWeekdayKeyFromISO(dayIso);
+        if (!map[dayKey]) continue;
+        map[dayKey] = normalizeRanges([...(map[dayKey] || []), ...(Array.isArray(ranges) ? ranges : [])]);
       }
     }
+
     availByDay = map;
+    if (!selectedAvailDay || !WEEKDAY_KEYS.includes(selectedAvailDay)) {
+      selectedAvailDay = WEEKDAY_KEYS[0];
+    }
   }
 
   function buildAvailabilitySummaryText(){
     const parts = [];
-    for (let i = 0; i < availWeekDates.length; i++) {
-      const dayIso = availWeekDates[i];
-      const ranges = normalizeRanges(availByDay[dayIso] || []);
+    for (let i = 0; i < WEEKDAY_KEYS.length; i++) {
+      const dayKey = WEEKDAY_KEYS[i];
+      const ranges = normalizeRanges(availByDay[dayKey] || []);
       if (!ranges.length) continue;
       const slots = ranges.map(r=>`${formatTimeForDisplay(r.start)}-${formatTimeForDisplay(r.end)}`).join(", ");
       parts.push(`${WEEKDAY_NAMES[i]} ${slots}`);
@@ -327,23 +307,21 @@
   }
 
   function renderAvailCalendar(){
-    $("availWeekLabel").textContent = `${toDMYFromISO(availWeekDates[0] || "")} to ${toDMYFromISO(availWeekDates[6] || "")}`;
+    $("availWeekLabel").textContent = "Repeats every week";
     const wrap = $("availCalendar");
     wrap.innerHTML = "";
-    for (let i = 0; i < availWeekDates.length; i++) {
-      const dayIso = availWeekDates[i];
-      const dayDate = parseISODateLocal(dayIso);
+    for (let i = 0; i < WEEKDAY_KEYS.length; i++) {
+      const dayKey = WEEKDAY_KEYS[i];
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "avail-day-box" + (dayIso === selectedAvailDay ? " selected" : "");
-      const ranges = normalizeRanges(availByDay[dayIso] || []);
+      btn.className = "avail-day-box" + (dayKey === selectedAvailDay ? " selected" : "");
+      const ranges = normalizeRanges(availByDay[dayKey] || []);
       btn.innerHTML = `
         <div class="avail-day-name">${WEEKDAY_NAMES[i]}</div>
-        <div class="avail-day-date">${dayDate ? dayDate.getDate() : ""}</div>
         <div class="avail-day-meta">${ranges.length ? `${ranges.length} time range${ranges.length === 1 ? "" : "s"}` : "No times set"}</div>
       `;
       btn.addEventListener("click", ()=>{
-        selectedAvailDay = dayIso;
+        selectedAvailDay = dayKey;
         renderAvailabilityEditor();
       });
       wrap.appendChild(btn);
@@ -355,7 +333,7 @@
     if (!selectedAvailDay) return;
     const ranges = normalizeRanges(availByDay[selectedAvailDay] || []);
     availByDay[selectedAvailDay] = ranges;
-    $("availDayTitle").textContent = formatDateHuman(selectedAvailDay);
+    $("availDayTitle").textContent = getDayLabelFromKey(selectedAvailDay);
     $("availDayCount").textContent = `${ranges.length} time range${ranges.length === 1 ? "" : "s"}`;
     const list = $("availRanges");
     list.innerHTML = "";
@@ -663,7 +641,6 @@
 
   async function loadAvail(){
     const j = await getJSON("/api/portal/employee/availability");
-    setAvailWeek(j.week_start || getMondayISOFromToday());
     initAvailStateFromPayload(j.availability || null);
     renderAvailabilityEditor();
   }
@@ -688,14 +665,14 @@
 
   $("availSave").addEventListener("click", async ()=>{
     $("availMsg").textContent = "";
-    const payloadByDay = {};
-    for (const dayIso of availWeekDates) {
-      payloadByDay[dayIso] = normalizeRanges(availByDay[dayIso] || []);
+    const payloadByWeekday = {};
+    for (const dayKey of WEEKDAY_KEYS) {
+      payloadByWeekday[dayKey] = normalizeRanges(availByDay[dayKey] || []);
     }
     await postJSON("/api/portal/employee/availability", {
-      week_start: availWeekStartISO || getMondayISOFromToday(),
+      recurring: true,
       availability: {
-        by_day: payloadByDay,
+        by_weekday: payloadByWeekday,
         text: buildAvailabilitySummaryText()
       }
     });
