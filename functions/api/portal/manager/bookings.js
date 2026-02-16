@@ -1,41 +1,6 @@
 import { requireRole } from "../../../_lib/requireAuth.js";
 import { parsePriceCentsFromTitle } from "../../../_lib/money.js";
-
-const CARS_Q = "How many cars need detailing? Price will vary depending on amount of cars";
-
-function extractCarsCount(payload) {
-  try {
-    // payload_json contains Cal payload
-    // Your screenshot shows this as a question/answer entry.
-    // We’ll search common shapes safely.
-    if (!payload) return 1;
-
-    // 1) payload.responses?.[question] = "1"
-    if (payload.responses && payload.responses[CARS_Q]) {
-      const n = parseInt(payload.responses[CARS_Q], 10);
-      return Number.isFinite(n) && n > 0 ? n : 1;
-    }
-
-    // 2) payload.questionsAndAnswers: [{question, answer}]
-    const qa = payload.questionsAndAnswers || payload.customInputs || payload.answers;
-    if (Array.isArray(qa)) {
-      const hit = qa.find(x => (x.question || x.label || "").trim() === CARS_Q);
-      const ans = hit?.answer ?? hit?.value;
-      const n = parseInt(ans, 10);
-      return Number.isFinite(n) && n > 0 ? n : 1;
-    }
-
-    // 3) payload.metadata?.[question]
-    if (payload.metadata && payload.metadata[CARS_Q]) {
-      const n = parseInt(payload.metadata[CARS_Q], 10);
-      return Number.isFinite(n) && n > 0 ? n : 1;
-    }
-
-    return 1;
-  } catch {
-    return 1;
-  }
-}
+import { extractCarsCount } from "../../../_lib/bookingCars.js";
 
 export async function onRequestGet(context) {
   const { env, request } = context;

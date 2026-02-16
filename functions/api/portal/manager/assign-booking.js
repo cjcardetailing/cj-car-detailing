@@ -1,29 +1,7 @@
 import { requireRole } from "../../../_lib/requireAuth.js";
 import { parsePriceCentsFromTitle, employeePayCents, managerEachCents } from "../../../_lib/money.js";
-
-const CARS_Q = "How many cars need detailing? Price will vary depending on amount of cars";
+import { extractCarsCount } from "../../../_lib/bookingCars.js";
 const RECURRING_WEEK_KEY = "__RECURRING__";
-
-function extractCarsCount(payload) {
-  try {
-    if (payload?.responses && payload.responses[CARS_Q]) {
-      const n = parseInt(payload.responses[CARS_Q], 10);
-      return Number.isFinite(n) && n > 0 ? n : 1;
-    }
-    const qa = payload?.questionsAndAnswers || payload?.customInputs || payload?.answers;
-    if (Array.isArray(qa)) {
-      const hit = qa.find(x => (x.question || x.label || "").trim() === CARS_Q);
-      const ans = hit?.answer ?? hit?.value;
-      const n = parseInt(ans, 10);
-      return Number.isFinite(n) && n > 0 ? n : 1;
-    }
-    if (payload?.metadata && payload.metadata[CARS_Q]) {
-      const n = parseInt(payload.metadata[CARS_Q], 10);
-      return Number.isFinite(n) && n > 0 ? n : 1;
-    }
-    return 1;
-  } catch { return 1; }
-}
 
 function parseDateTime(raw) {
   const text = String(raw || "").trim();
