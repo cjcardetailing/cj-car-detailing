@@ -1,6 +1,7 @@
 import { requireRole } from "../../../_lib/requireAuth.js";
 import { formatAUD } from "../../../_lib/money.js";
 import { isManualPayTableMissingError } from "../../../_lib/manualPay.js";
+import { getPeriodRange } from "../../../_lib/dashboard.js";
 
 export async function onRequestGet(context) {
   const { env, request } = context;
@@ -8,109 +9,59 @@ export async function onRequestGet(context) {
   if (!auth.ok) return auth.res;
   const managerUserId = Number(auth.user.id) || 0;
 
-  // Use AU localtime for both booking time and "now"
-  let week;
-  let month;
-  let year;
+  const ranges = {
+    week: getPeriodRange("week"),
+    month: getPeriodRange("month"),
+    year: getPeriodRange("year"),
+  };
+  const totals = {};
   try {
-    const q = async (bookingsWhereSql, manualWhereSql) =>
+    const q = async (fromDateTime, toDateTime) =>
       env.DB.prepare(
-        `SELECT
-           (
-             COALESCE((
-               SELECT SUM(ba.total_price_cents)
-               FROM booking_assignments ba
-               JOIN bookings b ON b.id = ba.booking_id
-               WHERE ba.completed_at IS NOT NULL
-                 AND ${bookingsWhereSql}
-             ), 0)
-           ) AS total_cents,
-           (
-             COALESCE((
-               SELECT SUM(ba.employee_pay_cents)
-               FROM booking_assignments ba
-               JOIN bookings b ON b.id = ba.booking_id
-               WHERE ba.completed_at IS NOT NULL
-                 AND ${bookingsWhereSql}
-             ), 0)
-             +
-             COALESCE((
-               SELECT SUM(mpe.pay_cents)
-               FROM manual_pay_entries mpe
-               WHERE ${manualWhereSql}
-             ), 0)
-           ) AS employee_cents,
-           (
-             COALESCE((
-               SELECT SUM(ba.manager_each_cents)
-               FROM booking_assignments ba
-               JOIN bookings b ON b.id = ba.booking_id
-               WHERE ba.completed_at IS NOT NULL
-                 AND ${bookingsWhereSql}
-             ), 0)
-           ) AS manager_each_cents,
-          (
-            COALESCE((
-              SELECT SUM(mpe.pay_cents)
-              FROM manual_pay_entries mpe
-              WHERE ${manualWhereSql}
-                AND mpe.employee_user_id = ${managerUserId}
-            ), 0)
-          ) AS my_manual_cents,
-          (
-            COALESCE((
-              SELECT COUNT(*)
-              FROM manual_pay_entries mpe
-              WHERE ${manualWhereSql}
-                AND mpe.employee_user_id = ${managerUserId}
-            ), 0)
-          ) AS my_manual_jobs,
-           (
-             COALESCE((
-               SELECT COUNT(*)
-               FROM booking_assignments ba
-               JOIN bookings b ON b.id = ba.booking_id
-               WHERE ba.completed_at IS NOT NULL
-                 AND ${bookingsWhereSql}
-             ), 0)
-             +
-             COALESCE((
-               SELECT COUNT(*)
-               FROM manual_pay_entries mpe
-               WHERE ${manualWhereSql}
-             ), 0)
-           ) AS jobs`
+        `WITH booking_rows AS (
+           SELECT ba.total_price_cents, ba.employee_pay_cents, ba.manager_each_cents
+           FROM booking_assignments ba
+           JOIN bookings b ON b.id = ba.booking_id
+           WHERE ba.completed_at IS NOT NULL
+             AND datetime(b.start_time, 'localtime') >= datetime(?)
+             AND datetime(b.start_time, 'localtime') < datetime(?)
+         ),
+         manual_rows AS (
+           SELECT mpe.employee_user_id, mpe.pay_cents
+           FROM manual_pay_entries mpe
+           WHERE datetime(mpe.job_time, 'localtime') >= datetime(?)
+             AND datetime(mpe.job_time, 'localtime') < datetime(?)
+         )
+         SELECT
+           COALESCE((SELECT SUM(total_price_cents) FROM booking_rows), 0) AS total_cents,
+           COALESCE((SELECT SUM(employee_pay_cents) FROM booking_rows), 0)
+             + COALESCE((SELECT SUM(pay_cents) FROM manual_rows), 0) AS employee_cents,
+           COALESCE((SELECT SUM(manager_each_cents) FROM booking_rows), 0) AS manager_each_cents,
+           COALESCE((SELECT SUM(pay_cents) FROM manual_rows WHERE employee_user_id = ?), 0) AS my_manual_cents,
+           COALESCE((SELECT COUNT(*) FROM manual_rows WHERE employee_user_id = ?), 0) AS my_manual_jobs,
+           COALESCE((SELECT COUNT(*) FROM booking_rows), 0)
+             + COALESCE((SELECT COUNT(*) FROM manual_rows), 0) AS jobs`
+      ).bind(
+        fromDateTime,
+        toDateTime,
+        fromDateTime,
+        toDateTime,
+        managerUserId,
+        managerUserId
       ).first();
 
-    week = await q(`
-      datetime(b.start_time,'localtime') >= datetime('now','localtime','weekday 1','-7 days')
-      AND datetime(b.start_time,'localtime') <  datetime('now','localtime','weekday 1')
-    `, `
-      datetime(mpe.job_time,'localtime') >= datetime('now','localtime','weekday 1','-7 days')
-      AND datetime(mpe.job_time,'localtime') <  datetime('now','localtime','weekday 1')
-    `);
-
-    month = await q(`
-      strftime('%Y-%m', datetime(b.start_time,'localtime')) = strftime('%Y-%m','now','localtime')
-    `, `
-      strftime('%Y-%m', datetime(mpe.job_time,'localtime')) = strftime('%Y-%m','now','localtime')
-    `);
-
-    year = await q(`
-      strftime('%Y', datetime(b.start_time,'localtime')) = strftime('%Y','now','localtime')
-    `, `
-      strftime('%Y', datetime(mpe.job_time,'localtime')) = strftime('%Y','now','localtime')
-    `);
+    for (const [key, range] of Object.entries(ranges)) {
+      totals[key] = await q(range.fromDateTime, range.toDateTime);
+    }
 
     // Dashboard card represents "Your earnings".
     // Add manual pay rows that were assigned directly to this manager account.
-    for (const bucket of [week, month, year]) {
+    for (const bucket of Object.values(totals)) {
       bucket.manager_each_cents = Number(bucket.manager_each_cents || 0) + Number(bucket.my_manual_cents || 0);
-      bucket.jobs = Number(bucket.jobs || 0) + Number(bucket.my_manual_jobs || 0);
     }
   } catch (err) {
     if (!isManualPayTableMissingError(err)) throw err;
-    const q = async (whereSql) =>
+    const q = async (fromDateTime, toDateTime) =>
       env.DB.prepare(
         `SELECT
            COALESCE(SUM(ba.total_price_cents),0) AS total_cents,
@@ -120,25 +71,19 @@ export async function onRequestGet(context) {
          FROM booking_assignments ba
          JOIN bookings b ON b.id = ba.booking_id
          WHERE ba.completed_at IS NOT NULL
-           AND ${whereSql}`
-      ).first();
+           AND datetime(b.start_time, 'localtime') >= datetime(?)
+           AND datetime(b.start_time, 'localtime') < datetime(?)`
+      ).bind(fromDateTime, toDateTime).first();
 
-    week = await q(`
-      datetime(b.start_time,'localtime') >= datetime('now','localtime','weekday 1','-7 days')
-      AND datetime(b.start_time,'localtime') <  datetime('now','localtime','weekday 1')
-    `);
-    month = await q(`
-      strftime('%Y-%m', datetime(b.start_time,'localtime')) = strftime('%Y-%m','now','localtime')
-    `);
-    year = await q(`
-      strftime('%Y', datetime(b.start_time,'localtime')) = strftime('%Y','now','localtime')
-    `);
+    for (const [key, range] of Object.entries(ranges)) {
+      totals[key] = await q(range.fromDateTime, range.toDateTime);
+    }
   }
 
   return new Response(JSON.stringify({
     ok: true,
-    week:  { ...week,  total_fmt: formatAUD(week.total_cents),  employee_fmt: formatAUD(week.employee_cents),  manager_each_fmt: formatAUD(week.manager_each_cents) },
-    month: { ...month, total_fmt: formatAUD(month.total_cents), employee_fmt: formatAUD(month.employee_cents), manager_each_fmt: formatAUD(month.manager_each_cents) },
-    year:  { ...year,  total_fmt: formatAUD(year.total_cents),  employee_fmt: formatAUD(year.employee_cents),  manager_each_fmt: formatAUD(year.manager_each_cents) }
+    week:  { ...totals.week,  total_fmt: formatAUD(totals.week.total_cents),  employee_fmt: formatAUD(totals.week.employee_cents),  manager_each_fmt: formatAUD(totals.week.manager_each_cents) },
+    month: { ...totals.month, total_fmt: formatAUD(totals.month.total_cents), employee_fmt: formatAUD(totals.month.employee_cents), manager_each_fmt: formatAUD(totals.month.manager_each_cents) },
+    year:  { ...totals.year,  total_fmt: formatAUD(totals.year.total_cents),  employee_fmt: formatAUD(totals.year.employee_cents),  manager_each_fmt: formatAUD(totals.year.manager_each_cents) }
   }), { status: 200, headers: { "content-type": "application/json" } });
 }
