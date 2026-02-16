@@ -1,5 +1,6 @@
 import { requireRole } from "../../../_lib/requireAuth.js";
 import { formatAUD } from "../../../_lib/money.js";
+import { isManualPayTableMissingError } from "../../../_lib/manualPay.js";
 
 export async function onRequestGet(context) {
   const { env, request } = context;
@@ -7,75 +8,103 @@ export async function onRequestGet(context) {
   if (!auth.ok) return auth.res;
 
   // Use AU localtime for both booking time and "now"
-  const q = async (bookingsWhereSql, manualWhereSql) =>
-    env.DB.prepare(
-      `SELECT
-         (
-           COALESCE((
-             SELECT SUM(ba.total_price_cents)
-             FROM booking_assignments ba
-             JOIN bookings b ON b.id = ba.booking_id
-             WHERE ${bookingsWhereSql}
-           ), 0)
-         ) AS total_cents,
-         (
-           COALESCE((
-             SELECT SUM(ba.employee_pay_cents)
-             FROM booking_assignments ba
-             JOIN bookings b ON b.id = ba.booking_id
-             WHERE ${bookingsWhereSql}
-           ), 0)
-           +
-           COALESCE((
-             SELECT SUM(mpe.pay_cents)
-             FROM manual_pay_entries mpe
-             WHERE ${manualWhereSql}
-           ), 0)
-         ) AS employee_cents,
-         (
-           COALESCE((
-             SELECT SUM(ba.manager_each_cents)
-             FROM booking_assignments ba
-             JOIN bookings b ON b.id = ba.booking_id
-             WHERE ${bookingsWhereSql}
-           ), 0)
-         ) AS manager_each_cents,
-         (
-           COALESCE((
-             SELECT COUNT(*)
-             FROM booking_assignments ba
-             JOIN bookings b ON b.id = ba.booking_id
-             WHERE ${bookingsWhereSql}
-           ), 0)
-           +
-           COALESCE((
-             SELECT COUNT(*)
-             FROM manual_pay_entries mpe
-             WHERE ${manualWhereSql}
-           ), 0)
-         ) AS jobs`
-    ).first();
+  let week;
+  let month;
+  let year;
+  try {
+    const q = async (bookingsWhereSql, manualWhereSql) =>
+      env.DB.prepare(
+        `SELECT
+           (
+             COALESCE((
+               SELECT SUM(ba.total_price_cents)
+               FROM booking_assignments ba
+               JOIN bookings b ON b.id = ba.booking_id
+               WHERE ${bookingsWhereSql}
+             ), 0)
+           ) AS total_cents,
+           (
+             COALESCE((
+               SELECT SUM(ba.employee_pay_cents)
+               FROM booking_assignments ba
+               JOIN bookings b ON b.id = ba.booking_id
+               WHERE ${bookingsWhereSql}
+             ), 0)
+             +
+             COALESCE((
+               SELECT SUM(mpe.pay_cents)
+               FROM manual_pay_entries mpe
+               WHERE ${manualWhereSql}
+             ), 0)
+           ) AS employee_cents,
+           (
+             COALESCE((
+               SELECT SUM(ba.manager_each_cents)
+               FROM booking_assignments ba
+               JOIN bookings b ON b.id = ba.booking_id
+               WHERE ${bookingsWhereSql}
+             ), 0)
+           ) AS manager_each_cents,
+           (
+             COALESCE((
+               SELECT COUNT(*)
+               FROM booking_assignments ba
+               JOIN bookings b ON b.id = ba.booking_id
+               WHERE ${bookingsWhereSql}
+             ), 0)
+             +
+             COALESCE((
+               SELECT COUNT(*)
+               FROM manual_pay_entries mpe
+               WHERE ${manualWhereSql}
+             ), 0)
+           ) AS jobs`
+      ).first();
 
-  // Week: Monday 00:00 local -> next Monday 00:00 local
-  const week = await q(`
-    datetime(b.start_time,'localtime') >= datetime('now','localtime','weekday 1','-7 days')
-    AND datetime(b.start_time,'localtime') <  datetime('now','localtime','weekday 1')
-  `, `
-    datetime(mpe.job_time,'localtime') >= datetime('now','localtime','weekday 1','-7 days')
-    AND datetime(mpe.job_time,'localtime') <  datetime('now','localtime','weekday 1')
-  `);
+    week = await q(`
+      datetime(b.start_time,'localtime') >= datetime('now','localtime','weekday 1','-7 days')
+      AND datetime(b.start_time,'localtime') <  datetime('now','localtime','weekday 1')
+    `, `
+      datetime(mpe.job_time,'localtime') >= datetime('now','localtime','weekday 1','-7 days')
+      AND datetime(mpe.job_time,'localtime') <  datetime('now','localtime','weekday 1')
+    `);
 
-  const month = await q(`
-    strftime('%Y-%m', datetime(b.start_time,'localtime')) = strftime('%Y-%m','now','localtime')
-  `, `
-    strftime('%Y-%m', datetime(mpe.job_time,'localtime')) = strftime('%Y-%m','now','localtime')
-  `);
+    month = await q(`
+      strftime('%Y-%m', datetime(b.start_time,'localtime')) = strftime('%Y-%m','now','localtime')
+    `, `
+      strftime('%Y-%m', datetime(mpe.job_time,'localtime')) = strftime('%Y-%m','now','localtime')
+    `);
 
-  const year = await q(`
-    strftime('%Y', datetime(b.start_time,'localtime')) = strftime('%Y','now','localtime')
-  `, `
-    strftime('%Y', datetime(mpe.job_time,'localtime')) = strftime('%Y','now','localtime')
-  `);
+    year = await q(`
+      strftime('%Y', datetime(b.start_time,'localtime')) = strftime('%Y','now','localtime')
+    `, `
+      strftime('%Y', datetime(mpe.job_time,'localtime')) = strftime('%Y','now','localtime')
+    `);
+  } catch (err) {
+    if (!isManualPayTableMissingError(err)) throw err;
+    const q = async (whereSql) =>
+      env.DB.prepare(
+        `SELECT
+           COALESCE(SUM(ba.total_price_cents),0) AS total_cents,
+           COALESCE(SUM(ba.employee_pay_cents),0) AS employee_cents,
+           COALESCE(SUM(ba.manager_each_cents),0) AS manager_each_cents,
+           COALESCE(COUNT(*),0) AS jobs
+         FROM booking_assignments ba
+         JOIN bookings b ON b.id = ba.booking_id
+         WHERE ${whereSql}`
+      ).first();
+
+    week = await q(`
+      datetime(b.start_time,'localtime') >= datetime('now','localtime','weekday 1','-7 days')
+      AND datetime(b.start_time,'localtime') <  datetime('now','localtime','weekday 1')
+    `);
+    month = await q(`
+      strftime('%Y-%m', datetime(b.start_time,'localtime')) = strftime('%Y-%m','now','localtime')
+    `);
+    year = await q(`
+      strftime('%Y', datetime(b.start_time,'localtime')) = strftime('%Y','now','localtime')
+    `);
+  }
 
   return new Response(JSON.stringify({
     ok: true,

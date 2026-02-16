@@ -694,30 +694,42 @@
   }
 
   async function loadManualPayHistory(){
-    const j = await getJSON("/api/portal/manager/manual-pay-history");
     const tbody = $("mp_table");
     tbody.innerHTML = "";
-    const rows = j.entries || [];
-    if (!rows.length) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td colspan="6">No manual pay entries yet.</td>`;
-      tbody.appendChild(tr);
-      return;
-    }
+    try {
+      const j = await getJSON("/api/portal/manager/manual-pay-history");
+      if (j?.ok === false && j?.message) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td colspan="6">${escapeHtml(j.message)}</td>`;
+        tbody.appendChild(tr);
+        return;
+      }
+      const rows = j.entries || [];
+      if (!rows.length) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td colspan="6">No manual pay entries yet.</td>`;
+        tbody.appendChild(tr);
+        return;
+      }
 
-    for (const r of rows) {
-      const when = new Date(r.job_time);
-      const whenText = isNaN(when.getTime()) ? (r.job_time || "") : formatDMY(when);
-      const empName = r.employee_full_name || r.employee_username || `Employee #${r.employee_user_id}`;
+      for (const r of rows) {
+        const when = new Date(r.job_time);
+        const whenText = isNaN(when.getTime()) ? (r.job_time || "") : formatDMY(when);
+        const empName = r.employee_full_name || r.employee_username || `Employee #${r.employee_user_id}`;
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${escapeHtml(whenText)}</td>
+          <td><b>${escapeHtml(empName)}</b><div class="small">${escapeHtml(r.employee_username || "")}</div></td>
+          <td>${escapeHtml(r.job_type || "")}</td>
+          <td>${Number(r.cars_count || 0)}</td>
+          <td><b>${aud(Number(r.pay_cents || 0))}</b></td>
+          <td>${escapeHtml(r.created_by_username || "")}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+    } catch (e) {
       const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${escapeHtml(whenText)}</td>
-        <td><b>${escapeHtml(empName)}</b><div class="small">${escapeHtml(r.employee_username || "")}</div></td>
-        <td>${escapeHtml(r.job_type || "")}</td>
-        <td>${Number(r.cars_count || 0)}</td>
-        <td><b>${aud(Number(r.pay_cents || 0))}</b></td>
-        <td>${escapeHtml(r.created_by_username || "")}</td>
-      `;
+      tr.innerHTML = `<td colspan="6">Could not load manual pay history right now.</td>`;
       tbody.appendChild(tr);
     }
   }

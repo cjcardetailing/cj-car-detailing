@@ -1,6 +1,7 @@
 import { requireRole } from "../../../_lib/requireAuth.js";
 import { formatAUD } from "../../../_lib/money.js";
 import { decryptString } from "../../../_lib/crypto.js";
+import { isManualPayTableMissingError } from "../../../_lib/manualPay.js";
 
 export async function onRequestGet(context) {
   const { env, request } = context;
@@ -19,91 +20,133 @@ export async function onRequestGet(context) {
     });
   }
 
-  // Include both booking assignments and manager-entered manual pay entries.
-  const rows = await env.DB.prepare(
-    `WITH payroll_rows AS (
+  let rows;
+  let totals;
+  let payRule = "Auto: 20% rounded up to nearest $5 per booking + manual pay entries";
+  try {
+    // Include both booking assignments and manager-entered manual pay entries.
+    rows = await env.DB.prepare(
+      `WITH payroll_rows AS (
+        SELECT
+          ba.employee_user_id AS employee_user_id,
+          ba.employee_pay_cents AS employee_pay_cents,
+          ba.total_price_cents AS total_price_cents,
+          ba.manager_each_cents AS manager_each_cents,
+          ba.cars_count AS cars_count,
+          1 AS jobs
+        FROM booking_assignments ba
+        JOIN bookings b ON b.id = ba.booking_id
+        WHERE datetime(b.start_time) >= datetime(?) AND datetime(b.start_time) < datetime(?)
+          AND (? IS NULL OR ba.employee_user_id = ?)
+
+        UNION ALL
+
+        SELECT
+          mpe.employee_user_id AS employee_user_id,
+          mpe.pay_cents AS employee_pay_cents,
+          0 AS total_price_cents,
+          0 AS manager_each_cents,
+          mpe.cars_count AS cars_count,
+          1 AS jobs
+        FROM manual_pay_entries mpe
+        WHERE datetime(mpe.job_time) >= datetime(?) AND datetime(mpe.job_time) < datetime(?)
+          AND (? IS NULL OR mpe.employee_user_id = ?)
+      )
       SELECT
-        ba.employee_user_id AS employee_user_id,
-        ba.employee_pay_cents AS employee_pay_cents,
-        ba.total_price_cents AS total_price_cents,
-        ba.manager_each_cents AS manager_each_cents,
-        ba.cars_count AS cars_count,
-        1 AS jobs
-      FROM booking_assignments ba
-      JOIN bookings b ON b.id = ba.booking_id
-      WHERE datetime(b.start_time) >= datetime(?) AND datetime(b.start_time) < datetime(?)
-        AND (? IS NULL OR ba.employee_user_id = ?)
+          pr.employee_user_id,
+          u.username,
+          u.email,
+          u.phone,
+          ep.full_name,
+          ep.bank_bsb_enc,
+          ep.bank_account_enc,
+          SUM(pr.employee_pay_cents) AS employee_pay_cents,
+          SUM(pr.total_price_cents) AS total_price_cents,
+          SUM(pr.cars_count) AS cars_washed,
+          SUM(pr.jobs) AS jobs
+       FROM payroll_rows pr
+       JOIN users u ON u.id = pr.employee_user_id
+       LEFT JOIN employee_profiles ep ON ep.user_id = u.id
+       GROUP BY pr.employee_user_id
+       ORDER BY employee_pay_cents DESC`
+    ).bind(
+      from, to, employeeUserId, employeeUserId,
+      from, to, employeeUserId, employeeUserId
+    ).all();
 
-      UNION ALL
+    totals = await env.DB.prepare(
+      `WITH total_rows AS (
+        SELECT
+          ba.employee_user_id AS employee_user_id,
+          ba.total_price_cents AS total_price_cents,
+          ba.employee_pay_cents AS employee_pay_cents,
+          ba.manager_each_cents AS manager_each_cents,
+          ba.cars_count AS cars_count
+        FROM booking_assignments ba
+        JOIN bookings b ON b.id = ba.booking_id
+        WHERE datetime(b.start_time) >= datetime(?) AND datetime(b.start_time) < datetime(?)
+          AND (? IS NULL OR ba.employee_user_id = ?)
 
+        UNION ALL
+
+        SELECT
+          mpe.employee_user_id AS employee_user_id,
+          0 AS total_price_cents,
+          mpe.pay_cents AS employee_pay_cents,
+          0 AS manager_each_cents,
+          mpe.cars_count AS cars_count
+        FROM manual_pay_entries mpe
+        WHERE datetime(mpe.job_time) >= datetime(?) AND datetime(mpe.job_time) < datetime(?)
+          AND (? IS NULL OR mpe.employee_user_id = ?)
+      )
       SELECT
-        mpe.employee_user_id AS employee_user_id,
-        mpe.pay_cents AS employee_pay_cents,
-        0 AS total_price_cents,
-        0 AS manager_each_cents,
-        mpe.cars_count AS cars_count,
-        1 AS jobs
-      FROM manual_pay_entries mpe
-      WHERE datetime(mpe.job_time) >= datetime(?) AND datetime(mpe.job_time) < datetime(?)
-        AND (? IS NULL OR mpe.employee_user_id = ?)
-    )
-    SELECT
-        pr.employee_user_id,
-        u.username,
-        u.email,
-        u.phone,
-        ep.full_name,
-        ep.bank_bsb_enc,
-        ep.bank_account_enc,
-        SUM(pr.employee_pay_cents) AS employee_pay_cents,
-        SUM(pr.total_price_cents) AS total_price_cents,
-        SUM(pr.cars_count) AS cars_washed,
-        SUM(pr.jobs) AS jobs
-     FROM payroll_rows pr
-     JOIN users u ON u.id = pr.employee_user_id
-     LEFT JOIN employee_profiles ep ON ep.user_id = u.id
-     GROUP BY pr.employee_user_id
-     ORDER BY employee_pay_cents DESC`
-  ).bind(
-    from, to, employeeUserId, employeeUserId,
-    from, to, employeeUserId, employeeUserId
-  ).all();
+         SUM(total_price_cents) AS total_cents,
+         SUM(employee_pay_cents) AS employee_cents,
+         SUM(manager_each_cents) AS manager_each_sum,
+         SUM(cars_count) AS cars_washed
+      FROM total_rows`
+    ).bind(
+      from, to, employeeUserId, employeeUserId,
+      from, to, employeeUserId, employeeUserId
+    ).first();
+  } catch (err) {
+    if (!isManualPayTableMissingError(err)) throw err;
+    payRule = "20% rounded up to nearest $5 per booking";
+    rows = await env.DB.prepare(
+      `SELECT
+          ba.employee_user_id,
+          u.username,
+          u.email,
+          u.phone,
+          ep.full_name,
+          ep.bank_bsb_enc,
+          ep.bank_account_enc,
+          SUM(ba.employee_pay_cents) AS employee_pay_cents,
+          SUM(ba.total_price_cents) AS total_price_cents,
+          SUM(ba.cars_count) AS cars_washed,
+          COUNT(*) AS jobs
+       FROM booking_assignments ba
+       JOIN bookings b ON b.id = ba.booking_id
+       JOIN users u ON u.id = ba.employee_user_id
+       LEFT JOIN employee_profiles ep ON ep.user_id = u.id
+       WHERE datetime(b.start_time) >= datetime(?) AND datetime(b.start_time) < datetime(?)
+         AND (? IS NULL OR ba.employee_user_id = ?)
+       GROUP BY ba.employee_user_id
+       ORDER BY employee_pay_cents DESC`
+    ).bind(from, to, employeeUserId, employeeUserId).all();
 
-  const totals = await env.DB.prepare(
-    `WITH total_rows AS (
-      SELECT
-        ba.employee_user_id AS employee_user_id,
-        ba.total_price_cents AS total_price_cents,
-        ba.employee_pay_cents AS employee_pay_cents,
-        ba.manager_each_cents AS manager_each_cents,
-        ba.cars_count AS cars_count
-      FROM booking_assignments ba
-      JOIN bookings b ON b.id = ba.booking_id
-      WHERE datetime(b.start_time) >= datetime(?) AND datetime(b.start_time) < datetime(?)
-        AND (? IS NULL OR ba.employee_user_id = ?)
-
-      UNION ALL
-
-      SELECT
-        mpe.employee_user_id AS employee_user_id,
-        0 AS total_price_cents,
-        mpe.pay_cents AS employee_pay_cents,
-        0 AS manager_each_cents,
-        mpe.cars_count AS cars_count
-      FROM manual_pay_entries mpe
-      WHERE datetime(mpe.job_time) >= datetime(?) AND datetime(mpe.job_time) < datetime(?)
-        AND (? IS NULL OR mpe.employee_user_id = ?)
-    )
-    SELECT
-       SUM(total_price_cents) AS total_cents,
-       SUM(employee_pay_cents) AS employee_cents,
-       SUM(manager_each_cents) AS manager_each_sum,
-       SUM(cars_count) AS cars_washed
-    FROM total_rows`
-  ).bind(
-    from, to, employeeUserId, employeeUserId,
-    from, to, employeeUserId, employeeUserId
-  ).first();
+    totals = await env.DB.prepare(
+      `SELECT
+         SUM(ba.total_price_cents) AS total_cents,
+         SUM(ba.employee_pay_cents) AS employee_cents,
+         SUM(ba.manager_each_cents) AS manager_each_sum,
+         SUM(ba.cars_count) AS cars_washed
+       FROM booking_assignments ba
+       JOIN bookings b ON b.id = ba.booking_id
+       WHERE datetime(b.start_time) >= datetime(?) AND datetime(b.start_time) < datetime(?)
+         AND (? IS NULL OR ba.employee_user_id = ?)`
+    ).bind(from, to, employeeUserId, employeeUserId).first();
+  }
 
   const employees = [];
   for (const r of (rows.results || [])) {
@@ -134,7 +177,7 @@ export async function onRequestGet(context) {
     ok: true,
     range: { from, to },
     filter: { employee_user_id: employeeUserId },
-    pay_rule: "Auto: 20% rounded up to nearest $5 per booking + manual pay entries",
+    pay_rule: payRule,
     totals: {
       total_cents: totals?.total_cents || 0,
       employee_cents: totals?.employee_cents || 0,
