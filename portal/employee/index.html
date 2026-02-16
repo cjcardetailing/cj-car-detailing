@@ -38,8 +38,8 @@
     <main class="portal-main">
       <div class="portal-top">
         <div>
-          <h2 style="margin:0;">CJ Employee</h2>
-          <div class="muted">Your earnings, jobs, and availability.</div>
+          <h2 style="margin:0;" id="pageTitle">Welcome</h2>
+          <div class="muted" id="pageSubtitle">Your earnings, jobs, and availability.</div>
         </div>
       </div>
 
@@ -265,12 +265,13 @@
 
   async function loadSidebar(){
     const p = await getJSON("/api/portal/employee/profile");
-    const name = p.profile?.full_name || "Employee";
+    const name = p.profile?.full_name || p.profile?.username || "Employee";
     const y = p.profile?.age_years ?? "";
     const m = p.profile?.age_months ?? "";
     const age = (y!=="" && m!=="") ? `${y}y ${m}m` : "";
     const username = p.profile?.username || "";
     $("sideLine").textContent = `${name}${age ? " • "+age : ""} • Account: ${username}`;
+    $("pageTitle").textContent = `Welcome ${name}`;
   }
 
   async function ensureEmployee(){

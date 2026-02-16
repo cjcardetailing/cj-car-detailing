@@ -38,8 +38,8 @@
     <main class="portal-main">
       <div class="portal-top">
         <div>
-          <h2 style="margin:0;">CJ Manager Dashboard</h2>
-          <div class="muted">Weekly / Monthly / Yearly totals, assignments, payroll.</div>
+          <h2 style="margin:0;" id="pageTitle">Welcome</h2>
+          <div class="muted" id="pageSubtitle">Your earnings and assignments.</div>
         </div>
       </div>
 
@@ -48,12 +48,12 @@
         <div class="portal-grid" id="totalsGrid"></div>
 
         <div class="portal-card" style="margin-top:12px;">
-          <div class="k">Revenue over time</div>
+          <div class="k">Your earnings over time</div>
           <div class="chart-container" id="revChartWrap">
             <div class="chart-tooltip" id="revTooltip"></div>
             <canvas id="revChart"></canvas>
           </div>
-          <div class="small">Cumulative revenue from completed bookings. Hover to see details.</div>
+          <div class="small">Your cumulative earnings from completed bookings. Hover to see details.</div>
         </div>
       </section>
 
@@ -291,6 +291,7 @@
     const me = await getJSON("/api/portal/me");
     if(me?.user?.role!=="MANAGER") location.href="/portal/";
     $("sideLine").textContent = `${me.user.username}`;
+    $("pageTitle").textContent = `Welcome ${me.user.username}`;
   }
 
   async function loadSummary(){
@@ -300,9 +301,9 @@
     grid.innerHTML = "";
 
     const blocks = [
-      ["This week total", s.week],
-      ["This month total", s.month],
-      ["This year total", s.year],
+      ["This week", s.week],
+      ["This month", s.month],
+      ["This year", s.year],
     ];
 
     for(const [label,v] of blocks){
@@ -311,8 +312,8 @@
       div.style.margin = "0";
       div.innerHTML = `
         <div class="k">${label}</div>
-        <div class="v">${v.total_fmt}</div>
-        <div class="small">Employees owed: <b>${v.employee_fmt}</b> • Each manager: <b>${v.manager_each_fmt}</b></div>
+        <div class="v">${v.manager_each_fmt}</div>
+        <div class="small">Jobs: <b>${v.jobs}</b></div>
       `;
       grid.appendChild(div);
     }
@@ -320,7 +321,7 @@
     const hist = await getJSON("/api/portal/manager/revenue-history");
     let cum = 0;
     const raw = (hist.entries || []).map(e => {
-      cum += e.total_cents;
+      cum += e.manager_each_cents;
       return { date: e.date, cumulative: cum };
     });
     const dataPoints = raw.length ? [{ date: raw[0].date, cumulative: 0 }, ...raw] : [];

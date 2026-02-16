@@ -2,6 +2,17 @@
 
 body.portal-page {
   background: #f8f6f2 !important;
+  color: #000000 !important;
+}
+
+body.portal-page .portal-main,
+body.portal-page .portal-main td,
+body.portal-page .portal-main th,
+body.portal-page .portal-main b,
+body.portal-page .portal-main .small,
+body.portal-page .portal-main .muted,
+body.portal-page .portal-side .sub {
+  color: #000000 !important;
 }
 
 :root {
