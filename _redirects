@@ -7,9 +7,6 @@
 # Serve book.html
 /book.html /book.html 200
 
-# Let API routes pass through to Functions
-/api/* /api/:splat 200
-
 # Fallback to index.html for all other routes (SPA-like behavior)
 /* /index.html 200
 
