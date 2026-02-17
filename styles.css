@@ -451,10 +451,8 @@ h1, h2, h3, h4 {
 }
 
 .reviews-cta {
-    margin-top: 2.8rem;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    margin-top: 2rem;
+    text-align: center;
 }
 
 /* All reviews page */
@@ -496,37 +494,6 @@ h1, h2, h3, h4 {
     color: var(--accent);
     min-height: 1.4em;
     font-size: 0.92rem;
-}
-
-.star-rating {
-    display: inline-flex;
-    flex-direction: row-reverse;
-    gap: 0.2rem;
-    margin-top: 0.25rem;
-}
-
-.star-rating input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
-}
-
-.star-rating label {
-    font-size: 2rem;
-    line-height: 1;
-    color: var(--border-hover);
-    cursor: pointer;
-    transition: color 0.2s ease, transform 0.2s ease;
-}
-
-.star-rating label:hover,
-.star-rating label:hover ~ label,
-.star-rating input:checked ~ label {
-    color: var(--accent);
-}
-
-.star-rating label:active {
-    transform: scale(0.96);
 }
 
 .review-form-message.error {
