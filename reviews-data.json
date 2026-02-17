@@ -1,0 +1,44 @@
+[
+  {
+    "id": "seed-1",
+    "name": "Sarah Mitchell",
+    "stars": 5,
+    "description": "The team arrived on time and completed a thorough exterior and interior detail on my vehicle. The attention to detail was impressive, and the convenience of having the service at my office location was excellent.",
+    "createdAt": "2026-01-31T10:00:00.000Z"
+  },
+  {
+    "id": "seed-2",
+    "name": "James Rodriguez",
+    "stars": 5,
+    "description": "Professional service from start to finish. The team addressed several stubborn stains and restored the interior of my SUV. Excellent communication and punctual arrival.",
+    "createdAt": "2026-01-18T10:00:00.000Z"
+  },
+  {
+    "id": "seed-3",
+    "name": "Emily Thompson",
+    "stars": 5,
+    "description": "We've been using CJ Car Detailing for our fleet maintenance for the past six months. Reliable scheduling, consistent quality, and professional service every visit.",
+    "createdAt": "2026-01-24T10:00:00.000Z"
+  },
+  {
+    "id": "seed-4",
+    "name": "David Williams",
+    "stars": 5,
+    "description": "The mobile service model is exactly what I needed. High-quality results without the time commitment of visiting a traditional car wash. Excellent value for the service provided.",
+    "createdAt": "2026-02-04T10:00:00.000Z"
+  },
+  {
+    "id": "seed-5",
+    "name": "Lisa Chen",
+    "stars": 5,
+    "description": "They successfully removed several set-in stains from the upholstery that I had been unable to address. The interior detail was comprehensive and the results speak for themselves.",
+    "createdAt": "2026-01-30T10:00:00.000Z"
+  },
+  {
+    "id": "seed-6",
+    "name": "Robert Brown",
+    "stars": 5,
+    "description": "Thorough and methodical approach to the entire vehicle. The team identified and addressed areas that are typically overlooked. Professional service delivery throughout.",
+    "createdAt": "2026-02-08T10:00:00.000Z"
+  }
+]
