@@ -61,22 +61,11 @@ function renderReviews(reviews) {
 
 async function loadReviews() {
     const response = await fetch('/api/reviews');
-    const data = await parseResponseJson(response);
     if (!response.ok) {
-        throw new Error(data.error || 'Failed to load reviews');
+        throw new Error('Failed to load reviews');
     }
+    const data = await response.json();
     renderReviews(data.reviews || []);
-}
-
-async function parseResponseJson(response) {
-    const text = await response.text();
-    if (!text) return {};
-
-    try {
-        return JSON.parse(text);
-    } catch {
-        return {};
-    }
 }
 
 function showFormMessage(message, isError = false) {
@@ -105,7 +94,7 @@ async function submitReview(event) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-        const data = await parseResponseJson(response);
+        const data = await response.json();
 
         if (!response.ok) {
             throw new Error(data.error || 'Failed to submit review');
