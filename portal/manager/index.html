@@ -27,6 +27,7 @@
         <button data-tab="dash" class="active">Dashboard</button>
         <button data-tab="bookings">Bookings</button>
         <button data-tab="employees">Employees</button>
+        <button data-tab="employeeavailability">Employee Availabilities</button>
         <button data-tab="customers">Customers</button>
         <button data-tab="payroll">Payroll</button>
         <button data-tab="payrolldue">Payroll Due</button>
@@ -145,6 +146,22 @@
             <tbody id="eTbody"></tbody>
           </table>
         </div>
+      </section>
+
+      <!-- EMPLOYEE AVAILABILITY -->
+      <section id="tab-employeeavailability" class="portal-card hidden">
+        <b>Employee Availabilities</b>
+        <div class="small">Managers can view each employee's recurring weekly availability.</div>
+
+        <div class="portal-row" style="margin-top:10px;">
+          <select id="maEmployee" style="min-width:240px;">
+            <option value="">Select employee</option>
+          </select>
+          <button id="maLoad" class="secondary">Load Availability</button>
+        </div>
+
+        <div class="small" id="maMeta" style="margin-top:8px;">Choose an employee to view saved availability.</div>
+        <div id="maBody" style="margin-top:10px;"></div>
       </section>
 
       <!-- CUSTOMERS -->
@@ -355,8 +372,10 @@
 
 <script>
   const $ = (id)=>document.getElementById(id);
-  const tabs = ["dash","bookings","employees","customers","payroll","payrolldue","cashbook","manualpay"];
+  const tabs = ["dash","bookings","employees","employeeavailability","customers","payroll","payrolldue","cashbook","manualpay"];
   const PERIOD_LABELS = { week: "This week", month: "This month", year: "This year" };
+  const AVAIL_DAY_ORDER = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+  const AVAIL_DAY_LABELS = { mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday", fri: "Friday", sat: "Saturday", sun: "Sunday" };
   let activeTab = "dash";
   let summaryCache = null;
 
@@ -438,6 +457,112 @@
     return j;
   }
 
+  function timeTextToMinutes(v){
+    const m = String(v || "").match(/^(\d{2}):(\d{2})$/);
+    if (!m) return NaN;
+    const hh = Number(m[1]);
+    const mm = Number(m[2]);
+    if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return NaN;
+    return hh * 60 + mm;
+  }
+
+  function normalizeAvailabilityRanges(ranges){
+    const clean = [];
+    for (const item of (ranges || [])) {
+      const start = String(item?.start || "");
+      const end = String(item?.end || "");
+      const startM = timeTextToMinutes(start);
+      const endM = timeTextToMinutes(end);
+      if (!Number.isFinite(startM) || !Number.isFinite(endM) || startM >= endM) continue;
+      clean.push({ start, end, startM, endM });
+    }
+    clean.sort((a, b)=>a.startM - b.startM);
+    const merged = [];
+    for (const r of clean) {
+      if (!merged.length || r.startM > merged[merged.length - 1].endM) {
+        merged.push({ startM: r.startM, endM: r.endM });
+      } else {
+        merged[merged.length - 1].endM = Math.max(merged[merged.length - 1].endM, r.endM);
+      }
+    }
+    return merged.map((r)=>{
+      const sh = String(Math.floor(r.startM / 60)).padStart(2, "0");
+      const sm = String(r.startM % 60).padStart(2, "0");
+      const eh = String(Math.floor(r.endM / 60)).padStart(2, "0");
+      const em = String(r.endM % 60).padStart(2, "0");
+      return { start: `${sh}:${sm}`, end: `${eh}:${em}` };
+    });
+  }
+
+  function normalizeAvailabilityByWeekday(payload){
+    const map = {};
+    for (const dayKey of AVAIL_DAY_ORDER) map[dayKey] = [];
+    if (!payload || typeof payload !== "object") return map;
+
+    if (payload.by_weekday && typeof payload.by_weekday === "object") {
+      for (const dayKey of AVAIL_DAY_ORDER) {
+        map[dayKey] = normalizeAvailabilityRanges(payload.by_weekday[dayKey] || []);
+      }
+      return map;
+    }
+
+    if (payload.by_day && typeof payload.by_day === "object") {
+      for (const [dayIso, ranges] of Object.entries(payload.by_day)) {
+        const m = String(dayIso || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!m) continue;
+        const dt = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+        if (isNaN(dt.getTime())) continue;
+        const jsDay = dt.getDay();
+        const dayKey = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][jsDay] || "";
+        if (!dayKey || !map[dayKey]) continue;
+        map[dayKey] = normalizeAvailabilityRanges([...(map[dayKey] || []), ...(Array.isArray(ranges) ? ranges : [])]);
+      }
+    }
+    return map;
+  }
+
+  function formatAvailabilityRange(start, end){
+    const s = new Date();
+    const e = new Date();
+    const startM = timeTextToMinutes(start);
+    const endM = timeTextToMinutes(end);
+    if (!Number.isFinite(startM) || !Number.isFinite(endM)) return `${start} - ${end}`;
+    s.setHours(Math.floor(startM / 60), startM % 60, 0, 0);
+    e.setHours(Math.floor(endM / 60), endM % 60, 0, 0);
+    return `${s.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }).toLowerCase()} - ${e.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }).toLowerCase()}`;
+  }
+
+  function renderManagerAvailability(payload){
+    const body = $("maBody");
+    const byWeekday = normalizeAvailabilityByWeekday(payload || null);
+    const hasAny = AVAIL_DAY_ORDER.some((dayKey)=> (byWeekday[dayKey] || []).length > 0);
+    if (!hasAny) {
+      body.innerHTML = `<div class="portal-card" style="margin:0;">No availability saved yet for this employee.</div>`;
+      return;
+    }
+
+    body.innerHTML = "";
+    for (const dayKey of AVAIL_DAY_ORDER) {
+      const ranges = byWeekday[dayKey] || [];
+      const card = document.createElement("div");
+      card.className = "portal-card";
+      card.style.margin = "0 0 10px 0";
+      if (!ranges.length) {
+        card.innerHTML = `
+          <div><b>${escapeHtml(AVAIL_DAY_LABELS[dayKey] || dayKey)}</b></div>
+          <div class="small">Unavailable</div>
+        `;
+      } else {
+        card.innerHTML = `
+          <div><b>${escapeHtml(AVAIL_DAY_LABELS[dayKey] || dayKey)}</b></div>
+          <div class="small">${ranges.length} time range${ranges.length === 1 ? "" : "s"}</div>
+          <div style="margin-top:8px;">${ranges.map((r)=>`<div class="small"><b>${escapeHtml(formatAvailabilityRange(r.start, r.end))}</b></div>`).join("")}</div>
+        `;
+      }
+      body.appendChild(card);
+    }
+  }
+
   function closeMobileMenu(){
     const btn = $("mobileMenuBtn");
     const dropdown = $("mobileMenuDropdown");
@@ -497,6 +622,8 @@
       renderChart().catch(()=>{});
     } else if (name === "customers") {
       loadCustomers().catch(()=>{});
+    } else if (name === "employeeavailability") {
+      loadManagerAvailability().catch(()=>{});
     }
   }
   document.querySelectorAll(".portal-nav button").forEach(b=>{
@@ -943,6 +1070,35 @@
     }
   }
 
+  async function loadManagerAvailabilityEmployees(){
+    const sel = $("maEmployee");
+    const prev = sel.value;
+    const j = await getJSON("/api/portal/manager/employees-basic");
+    const employees = (j.employees || []).filter((e)=>String(e.role || "").toUpperCase() === "EMPLOYEE");
+    sel.innerHTML = `<option value="">Select employee</option>` + employees.map((e)=>{
+      const name = e.full_name ? ` — ${escapeHtml(e.full_name)}` : "";
+      return `<option value="${Number(e.id)}">${escapeHtml(e.username || "")}${name}</option>`;
+    }).join("");
+    if (prev && employees.some((e)=>String(e.id) === String(prev))) {
+      sel.value = prev;
+    }
+  }
+
+  async function loadManagerAvailability(){
+    const employeeUserId = Number($("maEmployee").value || 0);
+    if (!employeeUserId) {
+      $("maMeta").textContent = "Choose an employee to view saved availability.";
+      $("maBody").innerHTML = `<div class="portal-card" style="margin:0;">Select an employee above.</div>`;
+      return;
+    }
+
+    $("maMeta").textContent = "Loading availability...";
+    const j = await getJSON(`/api/portal/manager/employee-availability?employee_user_id=${encodeURIComponent(employeeUserId)}`);
+    const employeeLabel = j?.employee?.full_name || j?.employee?.username || `Employee #${employeeUserId}`;
+    $("maMeta").textContent = `${employeeLabel} • ${j?.recurring ? "Recurring weekly template" : "Week-specific availability"}${j?.resolved_week_start ? ` • Source: ${j.resolved_week_start}` : ""}`;
+    renderManagerAvailability(j.availability || null);
+  }
+
   async function loadCustomers(){
     const wrap = $("cust_cards");
     if (!wrap) return;
@@ -1140,6 +1296,12 @@
   $("cust_refresh").addEventListener("click", loadCustomers);
 
   $("refreshBookings").addEventListener("click", loadBookings);
+  $("maLoad").addEventListener("click", ()=>{
+    loadManagerAvailability().catch((e)=>alert(String(e.message || e)));
+  });
+  $("maEmployee").addEventListener("change", ()=>{
+    loadManagerAvailability().catch((e)=>alert(String(e.message || e)));
+  });
   $("dashPeriod").addEventListener("change", ()=>{
     renderSummary();
     renderChart().catch((e)=>alert(String(e.message || e)));
@@ -1310,6 +1472,7 @@
     await loadCashbookWidget($("cbPeriod").value || "week");
     await loadBookings();
     await loadEmployees();
+    await loadManagerAvailabilityEmployees();
     await loadCustomers();
     await loadPayrollTargets();
     $("mp_time").value = nowForDateTimeLocal();
